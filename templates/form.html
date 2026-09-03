@@ -119,8 +119,8 @@
 
   <!-- ============== TABEL 2 — KEGIATAN PEKERJAAN ============== -->
   <section class="card">
-    <h2>3. Tabel 2 — Kegiatan Pekerjaan</h2>
-    <p class="hint">Jam Mulai/Akhir, Alat yang digunakan, Cuaca, & dokumentasi foto (progress 0 → 0.5 → 1).</p>
+    <h2>3. Tabel 2 — Kegiatan Pekerjaan <button type="button" class="btn-add" id="btn-add-kerja">+ Tambah Baris</button></h2>
+    <p class="hint">Jam Mulai/Akhir, Alat yang digunakan, Cuaca, & dokumentasi foto (progress 0 → 0.5 → 1). Klik "+ Tambah Baris" untuk menambah.</p>
     <table class="data" id="tbl-kerja">
       <thead>
         <tr>
@@ -136,9 +136,9 @@
           <th>Foto 1</th>
         </tr>
       </thead>
-      <tbody>
-        {% for i in range(1, 5) %}
-        <tr>
+      <tbody id="tbody-kerja">
+        {% for i in range(1, 2) %}
+        <tr class="row-kerja">
           <td class="num">{{ i }}</td>
           <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BRK.2"></td>
           <td><input type="text" name="kerja-{{ i }}-jenis" placeholder="Pembersihan"></td>
@@ -219,6 +219,109 @@ document.querySelectorAll('input[type="file"][data-preview]').forEach(input => {
     reader.readAsDataURL(file);
   });
 });
+
+// --- Dynamic rows for Tabel 2 (Kegiatan Pekerjaan) ---
+let kerjaRowCount = 1;
+const MAX_KERJA_ROWS = 20;
+
+function buildKerjaRow(idx) {
+  return `
+    <tr class="row-kerja">
+      <td class="num">${idx}</td>
+      <td><input type="text" name="kerja-${idx}-lokasi" placeholder="Contoh: BRK.2"></td>
+      <td><input type="text" name="kerja-${idx}-jenis" placeholder="Pembersihan"></td>
+      <td><input type="time" name="kerja-${idx}-jam_mulai"></td>
+      <td><input type="time" name="kerja-${idx}-jam_akhir"></td>
+      <td><input type="text" name="kerja-${idx}-alat" placeholder="Cangkul, Sabit, dll"></td>
+      <td>
+        <select name="kerja-${idx}-cuaca">
+          <option value="">— pilih —</option>
+          <option>Cerah</option>
+          <option>Berawan</option>
+          <option>Hujan Ringan</option>
+          <option>Hujan Lebat</option>
+        </select>
+      </td>
+      <td>
+        <input type="file" name="kerja-${idx}-foto0" accept="image/*" capture="environment" data-preview="prev-k-${idx}-0">
+        <div class="preview-img" id="prev-k-${idx}-0"></div>
+      </td>
+      <td>
+        <input type="file" name="kerja-${idx}-foto05" accept="image/*" capture="environment" data-preview="prev-k-${idx}-05">
+        <div class="preview-img" id="prev-k-${idx}-05"></div>
+      </td>
+      <td>
+        <input type="file" name="kerja-${idx}-foto1" accept="image/*" capture="environment" data-preview="prev-k-${idx}-1">
+        <div class="preview-img" id="prev-k-${idx}-1"></div>
+        <button type="button" class="btn-remove" onclick="removeKerjaRow(this)" title="Hapus baris">×</button>
+      </td>
+    </tr>
+  `;
+}
+
+document.getElementById('btn-add-kerja').addEventListener('click', () => {
+  if (kerjaRowCount >= MAX_KERJA_ROWS) {
+    alert('Maksimal ' + MAX_KERJA_ROWS + ' baris.');
+    return;
+  }
+  kerjaRowCount++;
+  const tbody = document.getElementById('tbody-kerja');
+  tbody.insertAdjacentHTML('beforeend', buildKerjaRow(kerjaRowCount));
+  // Re-bind preview listener for new file inputs
+  bindPreviewListeners();
+});
+
+function removeKerjaRow(btn) {
+  const tbody = document.getElementById('tbody-kerja');
+  if (tbody.querySelectorAll('.row-kerja').length <= 1) {
+    alert('Minimal 1 baris.');
+    return;
+  }
+  btn.closest('tr').remove();
+  renumberKerjaRows();
+}
+
+function renumberKerjaRows() {
+  const rows = document.querySelectorAll('#tbody-kerja .row-kerja');
+  rows.forEach((row, idx) => {
+    const newIdx = idx + 1;
+    row.querySelector('.num').textContent = newIdx;
+    row.querySelectorAll('[name]').forEach(el => {
+      el.name = el.name.replace(/kerja-\d+-/, `kerja-${newIdx}-`);
+    });
+    row.querySelectorAll('[data-preview]').forEach(el => {
+      const newPrevId = el.dataset.preview.replace(/prev-k-\d+-/, `prev-k-${newIdx}-`);
+      el.dataset.preview = newPrevId;
+      el.id = `input-${newPrevId}`;
+    });
+    row.querySelectorAll('.preview-img').forEach(el => {
+      const newId = el.id.replace(/prev-k-\d+-/, `prev-k-${newIdx}-`);
+      el.id = newId;
+    });
+  });
+  kerjaRowCount = rows.length;
+}
+
+function bindPreviewListeners() {
+  document.querySelectorAll('input[type="file"][data-preview]:not(.bound)').forEach(input => {
+    input.classList.add('bound');
+    input.addEventListener('change', e => {
+      const previewId = input.dataset.preview;
+      const previewEl = document.getElementById(previewId);
+      if (!previewEl) return;
+      const file = e.target.files[0];
+      if (!file) { previewEl.innerHTML = ''; return; }
+      const reader = new FileReader();
+      reader.onload = ev => {
+        previewEl.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+}
+
+// Initial bind
+bindPreviewListeners();
 
 // --- Submit helpers ---
 function submitPreview() {
