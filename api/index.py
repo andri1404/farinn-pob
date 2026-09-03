@@ -314,9 +314,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         1.4,  # TMA
         1.6,  # Status
         1.5,  # Cuaca
-        1.8,  # TMA Pagi (TEX: e.g. "30 cm")
-        3.2,  # Selfi (IMAGE)
-        5.6,  # filler (merged into Selfi body cells)
+        2.4,  # TMA Pagi (text + optional photo)
+        2.6,  # Selfi (IMAGE)
+        5.4,  # filler (merged into Selfi body cells)
     ]
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
 
@@ -339,6 +339,17 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         selfi_imgs = row.get('selfi_imgs') or []
         # Each image gets max_h, stack vertically — up to 4 images fit in cell
         selfi_cell = ImageStack(selfi_imgs[:4], max_w=8.5 * cm, max_h=2.2 * cm) if selfi_imgs else ''
+        # TMA Pagi: combine text + optional photo
+        tma_pagi_text = str(row.get('tma_pagi', ''))
+        tma_pagi_imgs = row.get('tma_pagi_imgs') or []
+        if tma_pagi_imgs:
+            tma_pagi_cell = [
+                Paragraph(tma_pagi_text, meta_style) if tma_pagi_text else '',
+                ImageStack(tma_pagi_imgs[:2], max_w=2.0 * cm, max_h=1.5 * cm, layout='vertical')
+            ]
+            tma_pagi_rendered = tma_pagi_cell
+        else:
+            tma_pagi_rendered = tma_pagi_text
         t1_data.append([
             str(i),
             str(row.get('hari_tanggal', '')),
@@ -348,7 +359,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             str(row.get('tma', '')),
             str(row.get('status', '')),
             str(row.get('cuaca', '')),
-            str(row.get('tma_pagi', '')),  # ALWAYS text — TMA Pagi is a measurement value
+            tma_pagi_rendered,              # TMA Pagi: text + optional photo
             selfi_cell,                      # Selfi = 1+ images stacked
             '',
         ])
@@ -516,6 +527,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 def parse_form_pagi():
     """Parse repeated 'pagi-*' fields from request.form -> list of dicts.
     Image fields use request.files.getlist() to support multiple uploads.
+    TMA Pagi supports BOTH text value AND photo upload (optional).
     """
     rows = []
     idx_set = set()
@@ -533,6 +545,7 @@ def parse_form_pagi():
             'status': request.form.get(f'pagi-{i}-status', '').strip(),
             'cuaca': request.form.get(f'pagi-{i}-cuaca', '').strip(),
             'tma_pagi': request.form.get(f'pagi-{i}-tma_pagi', '').strip(),
+            'tma_pagi_imgs': decode_images(request.files.getlist(f'pagi-{i}-tma_pagi_foto')),
             'selfi_imgs': decode_images(request.files.getlist(f'pagi-{i}-selfi')),
         })
     return rows

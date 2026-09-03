@@ -107,7 +107,10 @@
                 <option>Hujan Lebat</option>
               </select>
             </td>
-          <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm"></td>
+          <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm" style="margin-bottom:4px">
+            <input type="file" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" capture="environment" data-preview="prev-tma-{{ i }}">
+            <div class="preview-img" id="prev-tma-{{ i }}"></div>
+          </td>
           <td>
             <input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment" multiple data-preview="prev-pagi-{{ i }}">
             <div class="preview-img multi" id="prev-pagi-{{ i }}"></div>
