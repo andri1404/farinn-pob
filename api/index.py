@@ -156,7 +156,7 @@ def hari_id(date_str):
     """date_str 'YYYY-MM-DD' -> 'Senin/01/09/2026'"""
     try:
         d = datetime.strptime(date_str, '%Y-%m-%d')
-        return f"{HARI_ID[d.weekday()]}/{d.strftime('%d/%m/%Y')}"
+        return d.strftime('%d/%m/%Y')
     except Exception:
         return date_str
 
@@ -279,20 +279,15 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
                           title_style))
     story.append(Paragraph("DAERAH IRIGASI RIAM KANAN", sub_style))
 
-    # Metadata block (Nama, Petugas, Hari/Tanggal)
-    # Width: 2.0 + 9.5 + 2.5 + 12.8 = 26.8 cm (fits Letter 27.2 cm)
+    # Metadata block — persis sample Excel: hanya Nama & Petugas, kolom kiri
     meta_table = Table(
         [
-            [Paragraph("<b>Nama</b>", meta_style),
-             Paragraph(": " + str(meta.get('nama', '-')), meta_style),
-             Paragraph("<b>Hari / Tanggal</b>", meta_style),
-             Paragraph(": " + str(meta.get('hari_tanggal', '-')), meta_style)],
-            [Paragraph("<b>Petugas</b>", meta_style),
-             Paragraph(": " + str(meta.get('petugas', '-')), meta_style),
-             Paragraph("<b>Tanggal Cetak</b>", meta_style),
-             Paragraph(": " + str(meta.get('tanggal_cetak', '-')), meta_style)],
+            [Paragraph("Nama", meta_style),
+             Paragraph(": " + str(meta.get('nama', '-')), meta_style)],
+            [Paragraph("Petugas", meta_style),
+             Paragraph(": " + str(meta.get('petugas', '-')), meta_style)],
         ],
-        colWidths=[1.8 * cm, 9.5 * cm, 2.5 * cm, 13.0 * cm],
+        colWidths=[2.4 * cm, 16.0 * cm],
     )
     meta_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -321,8 +316,6 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         4.0,  # filler (merged into Selfi body cells)
     ]
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
-
-    story.append(Paragraph("<b>Tabel 1. Pemeriksaan Pagi</b>", meta_style))
 
     # Header baris 1 - 11 cols
     t1_header1 = [
@@ -374,7 +367,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     t1.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('BACKGROUND', (0, 0), (-1, 1), colors.lightgrey),
+        ('BACKGROUND', (0, 0), (-1, 1), colors.yellow),
         ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 1), 7.5),
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
@@ -403,23 +396,21 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     # ---------- TABEL 2 - KEGIATAN PEKERJAAN ----------
     # 11 cols: No | Hari/Tgl | Lokasi | Jenis | Jam Mulai | Jam Akhir | Cuaca | Alat | Foto0 | Foto0.5 | Foto1
-    # Total ~27.0 cm to fit Letter landscape (27.2 cm usable)
+    # Foto cols 4.4cm each (sample Excel: 4.8cm) — total 27.1cm fits Letter 27.2cm
     col_widths_t2_cm = [
-        0.7,  # No
-        2.4,  # Hari/Tanggal
-        3.5,  # Lokasi
-        3.5,  # Jenis
-        1.4,  # Jam Mulai
-        1.4,  # Jam Akhir
-        1.3,  # Cuaca
-        2.2,  # Alat
-        3.4,  # Foto 0
-        3.4,  # Foto 1
-        3.5,  # Foto 2 (was Foto 1)
+        0.6,  # No
+        1.7,  # Hari/Tanggal
+        3.0,  # Lokasi
+        3.0,  # Jenis
+        1.2,  # Jam Mulai
+        1.2,  # Jam Akhir
+        1.2,  # Cuaca
+        2.0,  # Alat
+        4.4,  # Foto 0
+        4.4,  # Foto 0.5
+        4.4,  # Foto 1
     ]
     col_widths_t2 = [w * cm for w in col_widths_t2_cm]
-
-    story.append(Paragraph("<b>Tabel 2. Kegiatan Pekerjaan</b>", meta_style))
 
     t2_header1 = [
         'No.', 'Hari / Tanggal', 'Titik Lokasi Pekerjaan', 'Jenis Pekerjaan',
@@ -446,9 +437,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             str(row.get('jam_akhir', '')),
             str(row.get('cuaca', '')),
             Paragraph(str(row.get('alat', '')), meta_style),
-            ImageStack(f0, max_w=3.2 * cm, max_h=3.0 * cm) if f0 else '',
-            ImageStack(f05, max_w=3.2 * cm, max_h=3.0 * cm) if f05 else '',
-            ImageStack(f1, max_w=3.6 * cm, max_h=3.0 * cm) if f1 else '',
+            ImageStack(f0, max_w=4.2 * cm, max_h=2.9 * cm) if f0 else '',
+            ImageStack(f05, max_w=4.2 * cm, max_h=2.9 * cm) if f05 else '',
+            ImageStack(f1, max_w=4.2 * cm, max_h=2.9 * cm) if f1 else '',
         ])
 
     while len(t2_data) < 5:
@@ -458,7 +449,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     t2.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('BACKGROUND', (0, 0), (-1, 1), colors.lightgrey),
+        ('BACKGROUND', (0, 0), (-1, 1), colors.yellow),
         ('FONTNAME', (0, 0), (-1, 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, 1), 7.5),
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
@@ -492,8 +483,8 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         signature_pengamat or Paragraph('<br/><br/><br/><br/>', meta_style),
         signature_petugas or Paragraph('<br/><br/><br/><br/>', meta_style),
     ], [
-        Paragraph("<b><u>" + str(meta.get('pengamat', 'AKHMAD MUHAZIR')) + "</u></b>", meta_style),
-        Paragraph("<b><u>" + str(meta.get('nama', '.........................')) + "</u></b>", meta_style),
+        Paragraph("<b><u>" + str(meta.get('pengamat', 'AKHMAD MUHAZIR')).upper() + "</u></b>", meta_style),
+        Paragraph("<b><u>" + str(meta.get('nama', '.........................')).upper() + "</u></b>", meta_style),
     ], [
         Paragraph("NIP. " + str(meta.get('pengamat_nip', '.................................')), meta_style),
         Paragraph("NIP. " + str(meta.get('petugas_nip', '.................................')), meta_style),
@@ -509,16 +500,6 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
     ]))
     story.append(ttd)
-
-    # ---------- Catatan kecil ----------
-    story.append(Spacer(1, 0.2 * cm))
-    note = Paragraph(
-        "<i>Dokumen dicetak otomatis oleh sistem - Martapura, "
-        + tgl_indonesia(datetime.now().strftime('%Y-%m-%d')) + "</i>",
-        ParagraphStyle('Note', parent=meta_style, fontSize=7,
-                       textColor=colors.grey, alignment=TA_CENTER),
-    )
-    story.append(note)
 
     doc.build(story)
     buf.seek(0)
