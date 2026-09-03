@@ -30,10 +30,9 @@ requirements.txt      # Deps
 
 | Method | Path        | Fungsi                                |
 | ------ | ----------- | ------------------------------------- |
-| GET    | `/`         | Form input                            |
+| GET    | `/        | Form input                            |
 | POST   | `/preview`  | Preview layout (HTML)                 |
-| POST   | `/generate` | Generate single-day PDF (download)    |
-| POST   | `/bulk`     | Generate satu bulan → ZIP             |
+| POST   | `/generate` | Generate PDF single-day (download)     |
 | GET    | `/healthz`  | Health check                          |
 
 ## Deploy

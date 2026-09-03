@@ -25,8 +25,6 @@ if os.path.isdir(_USER_SITE) and _USER_SITE not in sys.path:
 import io
 import re
 import base64
-import calendar
-import zipfile
 from datetime import datetime, date
 from io import BytesIO
 
@@ -505,46 +503,6 @@ def generate():
     pdf = build_pdf(meta, pagi, kerja, sig_pengamat, sig_petugas)
     fname = "Laporan-POB-" + request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d')) + ".pdf"
     return send_file(pdf, mimetype='application/pdf', as_attachment=True,
-                     download_name=fname)
-
-
-@app.route('/bulk', methods=['POST'])
-def bulk():
-    """Generate ZIP of PDFs for an entire month. Re-use same form data."""
-    year = int(request.form.get('bulk_year', datetime.now().year))
-    month = int(request.form.get('bulk_month', datetime.now().month))
-    _, last_day = calendar.monthrange(year, month)
-
-    meta_base = {
-        'nama': request.form.get('nama', 'Muhammad Yasir'),
-        'petugas': request.form.get('petugas', ''),
-        'petugas_label': request.form.get('petugas_label', 'Petugas'),
-        'pengamat': request.form.get('pengamat', 'AKHMAD MUHAZIR'),
-        'pengamat_nip': request.form.get('pengamat_nip', ''),
-        'petugas_nip': request.form.get('petugas_nip', ''),
-        'tanggal_cetak': tgl_indonesia(datetime.now().strftime('%Y-%m-%d')),
-    }
-
-    pagi = parse_form_pagi()
-    kerja = parse_form_kerja()
-
-    sig_pengamat = decode_image(request.files.get('signature_pengamat'))
-    sig_petugas = decode_image(request.files.get('signature_petugas'))
-
-    zip_buf = BytesIO()
-    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for d in range(1, last_day + 1):
-            date_str = f"{year:04d}-{month:02d}-{d:02d}"
-            meta = dict(meta_base)
-            meta['hari_tanggal'] = hari_id(date_str)
-            pagi_copy = [{**r, 'hari_tanggal': r.get('hari_tanggal') or hari_id(date_str)} for r in pagi]
-            kerja_copy = [{**r, 'hari_tanggal': r.get('hari_tanggal') or hari_id(date_str)} for r in kerja]
-            pdf = build_pdf(meta, pagi_copy, kerja_copy, sig_pengamat, sig_petugas)
-            zf.writestr(f"Laporan-POB-{date_str}.pdf", pdf.read())
-
-    zip_buf.seek(0)
-    fname = f"Laporan-POB-{year:04d}-{month:02d}.zip"
-    return send_file(zip_buf, mimetype='application/zip', as_attachment=True,
                      download_name=fname)
 
 

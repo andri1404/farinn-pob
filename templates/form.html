@@ -190,32 +190,6 @@
     </div>
   </section>
 
-  <!-- ============== BULK ============== -->
-  <section class="card">
-    <h2>5. Generate Satu Bulan (ZIP)</h2>
-    <p class="hint">Data form di atas dipakai untuk SEMUA hari di bulan yang dipilih. TTD & foto kerja cuma dipakai sekali.</p>
-    <div class="grid-3">
-      <label>
-        Tahun
-        <input type="number" name="bulk_year" value="{{ default_date[:4] }}" min="2024" max="2030">
-      </label>
-      <label>
-        Bulan
-        <select name="bulk_month">
-          {% for m in range(1, 13) %}
-          <option value="{{ m }}" {% if m == default_date[5:7]|int %}selected{% endif %}>
-            {{ ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][m-1] }}
-          </option>
-          {% endfor %}
-        </select>
-      </label>
-      <div></div>
-    </div>
-    <button type="button" class="btn-secondary" onclick="submitBulk()">
-      📦 Generate ZIP Satu Bulan
-    </button>
-  </section>
-
   <!-- ============== ACTION ============== -->
   <div class="action-bar">
     <button type="button" class="btn-ghost" onclick="resetForm()">🗑 Reset Form</button>
@@ -251,13 +225,6 @@ function submitPreview() {
   const f = document.getElementById('form-laporan');
   f.action = '/preview';
   f.target = '_self';
-  f.submit();
-  setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
-}
-function submitBulk() {
-  const f = document.getElementById('form-laporan');
-  f.action = '/bulk';
-  f.target = '_blank';
   f.submit();
   setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
 }
