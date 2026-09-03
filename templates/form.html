@@ -109,8 +109,8 @@
             </td>
           <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm"></td>
           <td>
-            <input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment" data-preview="prev-pagi-{{ i }}">
-            <div class="preview-img" id="prev-pagi-{{ i }}"></div>
+            <input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment" multiple data-preview="prev-pagi-{{ i }}">
+            <div class="preview-img multi" id="prev-pagi-{{ i }}"></div>
           </td>
         </tr>
         {% endfor %}
@@ -205,22 +205,6 @@
 </footer>
 
 <script>
-// --- Image preview before submit ---
-document.querySelectorAll('input[type="file"][data-preview]').forEach(input => {
-  input.addEventListener('change', e => {
-    const previewId = input.dataset.preview;
-    const previewEl = document.getElementById(previewId);
-    if (!previewEl) return;
-    const file = e.target.files[0];
-    if (!file) { previewEl.innerHTML = ''; return; }
-    const reader = new FileReader();
-    reader.onload = ev => {
-      previewEl.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
-    };
-    reader.readAsDataURL(file);
-  });
-});
-
 // --- Dynamic rows for Tabel 2 (Kegiatan Pekerjaan) ---
 let kerjaRowCount = 1;
 const MAX_KERJA_ROWS = 20;
@@ -244,16 +228,16 @@ function buildKerjaRow(idx) {
         </select>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto0" accept="image/*" capture="environment" data-preview="prev-k-${idx}-0">
-        <div class="preview-img" id="prev-k-${idx}-0"></div>
+        <input type="file" name="kerja-${idx}-foto0" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-0">
+        <div class="preview-img multi" id="prev-k-${idx}-0"></div>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto05" accept="image/*" capture="environment" data-preview="prev-k-${idx}-05">
-        <div class="preview-img" id="prev-k-${idx}-05"></div>
+        <input type="file" name="kerja-${idx}-foto05" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-05">
+        <div class="preview-img multi" id="prev-k-${idx}-05"></div>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto1" accept="image/*" capture="environment" data-preview="prev-k-${idx}-1">
-        <div class="preview-img" id="prev-k-${idx}-1"></div>
+        <input type="file" name="kerja-${idx}-foto1" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-1">
+        <div class="preview-img multi" id="prev-k-${idx}-1"></div>
         <button type="button" class="btn-remove" onclick="removeKerjaRow(this)" title="Hapus baris">×</button>
       </td>
     </tr>
@@ -310,13 +294,19 @@ function bindPreviewListeners() {
       const previewId = input.dataset.preview;
       const previewEl = document.getElementById(previewId);
       if (!previewEl) return;
-      const file = e.target.files[0];
-      if (!file) { previewEl.innerHTML = ''; return; }
-      const reader = new FileReader();
-      reader.onload = ev => {
-        previewEl.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
-      };
-      reader.readAsDataURL(file);
+      const files = Array.from(e.target.files || []);
+      if (!files.length) { previewEl.innerHTML = ''; return; }
+      // Render all thumbnails
+      const html = files.map((file, i) => {
+        return new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = ev => resolve(`<img src="${ev.target.result}" alt="preview ${i+1}" title="${file.name}">`);
+          reader.readAsDataURL(file);
+        });
+      });
+      Promise.all(html).then(results => {
+        previewEl.innerHTML = results.join('') + `<small>${files.length} foto dipilih</small>`;
+      });
     });
   });
 }

@@ -126,6 +126,19 @@ table.data input[type="file"] { padding: 2px; }
   object-fit: cover;
   border: 1px solid #cbd5e1;
   border-radius: 4px;
+  margin: 2px 2px 2px 0;
+}
+.preview-img.multi {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.preview-img small {
+  display: block;
+  width: 100%;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: #64748b;
 }
 
 .btn-add {

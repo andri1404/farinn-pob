@@ -34,8 +34,72 @@ from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image,
-    PageBreak, KeepTogether,
+    PageBreak, KeepTogether, Flowable,
 )
+from reportlab.lib.utils import ImageReader
+
+
+class ImageStack(Flowable):
+    """Flowable that renders N images stacked vertically inside a cell.
+
+    Each image is drawn as a ReportLab Image with given size. We override
+    wrap() so the cell reserves proper height for ALL images (not just 1).
+    draw() draws each image scaled to fit the cell width.
+    """
+    def __init__(self, images, max_w=4.5 * cm, max_h=3.0 * cm, gap=4):
+        Flowable.__init__(self)
+        self.images = images or []
+        self.max_w = max_w
+        self.max_h = max_h
+        self.gap = gap
+        # Force each image to its max_h box so wrap gives consistent height
+        for img in self.images:
+            try:
+                img.drawWidth = self.max_w
+                img.drawHeight = self.max_h
+            except Exception:
+                pass
+
+    def wrap(self, availWidth, availHeight):
+        n = max(len(self.images), 1)
+        # Use max_h per image as ceiling
+        per_h = self.max_h
+        total_h = n * per_h + (n - 1) * self.gap
+        # Don't exceed availHeight
+        if availHeight and total_h > availHeight:
+            per_h = max((availHeight - (n - 1) * self.gap) / n, 0.5 * cm)
+            total_h = n * per_h + (n - 1) * self.gap
+        return (self.max_w, total_h)
+
+    def split(self, availWidth, availHeight):
+        # Prevent splitting across pages
+        return []
+
+    def draw(self):
+        if not self.images:
+            return
+        n = len(self.images)
+        per_h = (self.height - (n - 1) * self.gap) / n
+        canvas = self.canv
+        y = self.height
+        for img in self.images:
+            y -= per_h
+            try:
+                iw, ih = img.imageWidth, img.imageHeight
+            except Exception:
+                iw, ih = self.max_w, per_h
+            scale_w = self.max_w / iw
+            scale_h = per_h / ih
+            scale = min(scale_w, scale_h)
+            dw = iw * scale
+            dh = ih * scale
+            x = (self.max_w - dw) / 2
+            try:
+                img.drawOn(canvas, x, y + (per_h - dh) / 2)
+            except Exception as e:
+                import sys
+                print(f'ImageStack.draw error: {e}', file=sys.stderr)
+            y -= self.gap
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
@@ -77,30 +141,44 @@ def tgl_indonesia(date_str):
         return date_str
 
 
-def decode_image(file_storage, max_px=900):
-    """Decode upload -> ReportLab Image (downscaled). Returns None if empty."""
-    if not file_storage or not file_storage.filename:
-        return None
-    raw = file_storage.read()
-    if not raw:
-        return None
-    try:
-        from PIL import Image as PILImage
-        pil = PILImage.open(BytesIO(raw))
-        pil.thumbnail((max_px, max_px))
-        if pil.mode in ('RGBA', 'LA', 'P'):
-            pil = pil.convert('RGB')
-        buf = BytesIO()
-        pil.save(buf, format='JPEG', quality=80, optimize=True)
-        buf.seek(0)
-        img = Image(buf, width=3.0 * cm, height=2.2 * cm)
-        return img
-    except Exception:
+def decode_images(file_storage_list, max_px=900):
+    """Decode list of uploaded files -> list of ReportLab Images.
+    Returns [] if empty. Each image is resized & compressed in-memory.
+    """
+    images = []
+    if not file_storage_list:
+        return images
+    for fs in file_storage_list:
+        if not fs or not fs.filename:
+            continue
+        raw = fs.read()
+        if not raw:
+            continue
         try:
-            buf = BytesIO(raw)
-            return Image(buf, width=3.0 * cm, height=2.2 * cm)
+            from PIL import Image as PILImage
+            pil = PILImage.open(BytesIO(raw))
+            pil.thumbnail((max_px, max_px))
+            if pil.mode in ('RGBA', 'LA', 'P'):
+                pil = pil.convert('RGB')
+            buf = BytesIO()
+            pil.save(buf, format='JPEG', quality=80, optimize=True)
+            buf.seek(0)
+            img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+            images.append(img)
         except Exception:
-            return None
+            try:
+                buf = BytesIO(raw)
+                img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+                images.append(img)
+            except Exception:
+                continue
+    return images
+
+
+def decode_image(file_storage, max_px=900):
+    """Single-file convenience wrapper."""
+    result = decode_images(file_storage if isinstance(file_storage, list) else [file_storage], max_px)
+    return result[0] if result else None
 
 
 def decode_b64(b64str, max_px=900):
@@ -224,6 +302,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     t1_data = [t1_header1, t1_header2]
     for i, row in enumerate(pagi_rows, start=1):
+        selfi_imgs = row.get('selfi_imgs') or []
+        # Each image gets max_h, stack vertically — up to 4 images fit in cell
+        selfi_cell = ImageStack(selfi_imgs[:4], max_w=8.5 * cm, max_h=2.2 * cm) if selfi_imgs else ''
         t1_data.append([
             str(i),
             str(row.get('hari_tanggal', '')),
@@ -234,7 +315,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             str(row.get('status', '')),
             str(row.get('cuaca', '')),
             str(row.get('tma_pagi', '')),  # ALWAYS text — TMA Pagi is a measurement value
-            row.get('selfi_img') or '',     # Selfi = image
+            selfi_cell,                      # Selfi = 1+ images stacked
             '',
         ])
 
@@ -260,6 +341,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('TOPPADDING', (0, 0), (-1, -1), 2),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('MINROWHEIGHT', (0, 2), (-1, -1), 1.0 * cm),
+        ('MINROWHEIGHT', (9, 2), (10, -1), 9.0 * cm),  # Selfi col grows with images
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (1, 1)),
         ('SPAN', (2, 0), (2, 1)),
@@ -304,6 +386,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     t2_data = [t2_header1, t2_header2]
     for i, row in enumerate(kerja_rows, start=1):
+        f0 = row.get('foto0_imgs') or []
+        f05 = row.get('foto05_imgs') or []
+        f1 = row.get('foto1_imgs') or []
         t2_data.append([
             str(i),
             str(row.get('hari_tanggal', '')),
@@ -313,9 +398,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             str(row.get('jam_akhir', '')),
             str(row.get('cuaca', '')),
             Paragraph(str(row.get('alat', '')), meta_style),
-            row.get('foto0_img') or '',
-            row.get('foto05_img') or '',
-            row.get('foto1_img') or '',
+            ImageStack(f0, max_w=3.2 * cm, max_h=3.0 * cm) if f0 else '',
+            ImageStack(f05, max_w=3.2 * cm, max_h=3.0 * cm) if f05 else '',
+            ImageStack(f1, max_w=3.6 * cm, max_h=3.0 * cm) if f1 else '',
         ])
 
     while len(t2_data) < 5:
@@ -395,7 +480,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 # ----------------- Form parsing -----------------
 
 def parse_form_pagi():
-    """Parse repeated 'pagi-*' fields from request.form -> list of dicts."""
+    """Parse repeated 'pagi-*' fields from request.form -> list of dicts.
+    Image fields use request.files.getlist() to support multiple uploads.
+    """
     rows = []
     idx_set = set()
     for k in request.form.keys():
@@ -412,13 +499,13 @@ def parse_form_pagi():
             'status': request.form.get(f'pagi-{i}-status', '').strip(),
             'cuaca': request.form.get(f'pagi-{i}-cuaca', '').strip(),
             'tma_pagi': request.form.get(f'pagi-{i}-tma_pagi', '').strip(),
-            'selfi_img': decode_image(request.files.get(f'pagi-{i}-selfi')),
+            'selfi_imgs': decode_images(request.files.getlist(f'pagi-{i}-selfi')),
         })
     return rows
 
 
 def parse_form_kerja():
-    """Parse repeated 'kerja-*' fields."""
+    """Parse repeated 'kerja-*' fields. Image fields support multiple uploads."""
     rows = []
     idx_set = set()
     for k in request.form.keys():
@@ -434,9 +521,9 @@ def parse_form_kerja():
             'jam_akhir': request.form.get(f'kerja-{i}-jam_akhir', '').strip(),
             'alat': request.form.get(f'kerja-{i}-alat', '').strip(),
             'cuaca': request.form.get(f'kerja-{i}-cuaca', '').strip(),
-            'foto0_img': decode_image(request.files.get(f'kerja-{i}-foto0')),
-            'foto05_img': decode_image(request.files.get(f'kerja-{i}-foto05')),
-            'foto1_img': decode_image(request.files.get(f'kerja-{i}-foto1')),
+            'foto0_imgs': decode_images(request.files.getlist(f'kerja-{i}-foto0')),
+            'foto05_imgs': decode_images(request.files.getlist(f'kerja-{i}-foto05')),
+            'foto1_imgs': decode_images(request.files.getlist(f'kerja-{i}-foto1')),
         })
     return rows
 
