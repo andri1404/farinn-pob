@@ -40,19 +40,20 @@ from reportlab.lib.utils import ImageReader
 
 
 class ImageStack(Flowable):
-    """Flowable that renders N images stacked vertically inside a cell.
+    """Flowable that renders N images side-by-side (or stacked) inside a cell.
 
     Each image is drawn as a ReportLab Image with given size. We override
-    wrap() so the cell reserves proper height for ALL images (not just 1).
-    draw() draws each image scaled to fit the cell width.
+    wrap() so the cell reserves proper height for ALL images. draw() draws
+    each image scaled to fit the cell width.
     """
-    def __init__(self, images, max_w=4.5 * cm, max_h=3.0 * cm, gap=4):
+    def __init__(self, images, max_w=4.5 * cm, max_h=3.0 * cm, gap=4, layout='horizontal'):
         Flowable.__init__(self)
         self.images = images or []
         self.max_w = max_w
         self.max_h = max_h
         self.gap = gap
-        # Force each image to its max_h box so wrap gives consistent height
+        self.layout = layout  # 'horizontal' or 'vertical'
+        # Force each image's drawWidth/drawHeight for consistent sizing
         for img in self.images:
             try:
                 img.drawWidth = self.max_w
@@ -62,44 +63,72 @@ class ImageStack(Flowable):
 
     def wrap(self, availWidth, availHeight):
         n = max(len(self.images), 1)
-        # Use max_h per image as ceiling
-        per_h = self.max_h
-        total_h = n * per_h + (n - 1) * self.gap
-        # Don't exceed availHeight
-        if availHeight and total_h > availHeight:
-            per_h = max((availHeight - (n - 1) * self.gap) / n, 0.5 * cm)
+        if self.layout == 'vertical':
+            per_h = self.max_h
             total_h = n * per_h + (n - 1) * self.gap
+        else:  # horizontal: all images in single row, max_h tall
+            total_h = self.max_h
+        if availHeight and total_h > availHeight:
+            total_h = availHeight
         return (self.max_w, total_h)
 
     def split(self, availWidth, availHeight):
-        # Prevent splitting across pages
         return []
 
     def draw(self):
         if not self.images:
             return
         n = len(self.images)
-        per_h = (self.height - (n - 1) * self.gap) / n
         canvas = self.canv
-        y = self.height
-        for img in self.images:
-            y -= per_h
-            try:
-                iw, ih = img.imageWidth, img.imageHeight
-            except Exception:
-                iw, ih = self.max_w, per_h
-            scale_w = self.max_w / iw
-            scale_h = per_h / ih
-            scale = min(scale_w, scale_h)
-            dw = iw * scale
-            dh = ih * scale
-            x = (self.max_w - dw) / 2
-            try:
-                img.drawOn(canvas, x, y + (per_h - dh) / 2)
-            except Exception as e:
-                import sys
-                print(f'ImageStack.draw error: {e}', file=sys.stderr)
-            y -= self.gap
+
+        if self.layout == 'horizontal':
+            # All images side-by-side, scaled to fit total width
+            # Total available width = self.max_w, minus gaps
+            avail_w = self.width if self.width else self.max_w
+            per_w = (avail_w - (n - 1) * self.gap) / n
+            # height = self.height
+            x = 0
+            for img in self.images:
+                try:
+                    iw, ih = img.imageWidth, img.imageHeight
+                except Exception:
+                    iw, ih = per_w, self.height
+                # Scale to fit per_w x self.height
+                scale_w = per_w / iw
+                scale_h = self.height / ih
+                scale = min(scale_w, scale_h)
+                dw = iw * scale
+                dh = ih * scale
+                img_x = x + (per_w - dw) / 2
+                img_y = (self.height - dh) / 2
+                try:
+                    img.drawOn(canvas, img_x, img_y)
+                except Exception as e:
+                    import sys
+                    print(f'ImageStack.draw error: {e}', file=sys.stderr)
+                x += per_w + self.gap
+        else:
+            # vertical layout
+            per_h = (self.height - (n - 1) * self.gap) / n
+            y = self.height
+            for img in self.images:
+                y -= per_h
+                try:
+                    iw, ih = img.imageWidth, img.imageHeight
+                except Exception:
+                    iw, ih = self.max_w, per_h
+                scale_w = self.max_w / iw
+                scale_h = per_h / ih
+                scale = min(scale_w, scale_h)
+                dw = iw * scale
+                dh = ih * scale
+                x = (self.max_w - dw) / 2
+                try:
+                    img.drawOn(canvas, x, y + (per_h - dh) / 2)
+                except Exception as e:
+                    import sys
+                    print(f'ImageStack.draw error: {e}', file=sys.stderr)
+                y -= self.gap
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
@@ -141,14 +170,15 @@ def tgl_indonesia(date_str):
         return date_str
 
 
-def decode_images(file_storage_list, max_px=900):
+def decode_images(file_list_files, max_px=900):
     """Decode list of uploaded files -> list of ReportLab Images.
     Returns [] if empty. Each image is resized & compressed in-memory.
+    Each image gets a unique filename so ReportLab doesn't de-dup them.
     """
     images = []
-    if not file_storage_list:
+    if not file_list_files:
         return images
-    for fs in file_storage_list:
+    for idx, fs in enumerate(file_list_files):
         if not fs or not fs.filename:
             continue
         raw = fs.read()
@@ -163,12 +193,16 @@ def decode_images(file_storage_list, max_px=900):
             buf = BytesIO()
             pil.save(buf, format='JPEG', quality=80, optimize=True)
             buf.seek(0)
+            # Unique filename per image to prevent ReportLab from de-duplicating
+            unique_name = f'img_{idx}_{fs.filename}'
             img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+            img.filename = unique_name
             images.append(img)
         except Exception:
             try:
                 buf = BytesIO(raw)
                 img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+                img.filename = f'img_{idx}.jpg'
                 images.append(img)
             except Exception:
                 continue
