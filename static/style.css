@@ -288,6 +288,51 @@ table.data input[type="file"]::file-selector-button {
 }
 .btn-remove:hover { background: #fecaca; transform: scale(1.1); }
 
+/* Custom upload button (label styled as button) */
+.hidden-file {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.btn-upload {
+  display: inline-block;
+  margin: 4px 0;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+  text-align: center;
+  white-space: nowrap;
+}
+.btn-upload:hover {
+  background: linear-gradient(135deg, #bfdbfe, #93c5fd);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(37,99,235,0.15);
+}
+.btn-upload:active {
+  transform: translateY(0);
+}
+.btn-upload-block {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+}
+.btn-upload.has-files {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  border-color: #34d399;
+  color: #065f46;
+}
+
 footer {
   text-align: center;
   padding: 1.5rem 1rem;

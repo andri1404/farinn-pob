@@ -104,11 +104,13 @@
             </td>
           <td>
             <input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm" style="margin-bottom:4px">
-            <input type="file" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" capture="environment" data-preview="prev-tma-{{ i }}">
+            <label class="btn-upload" for="pagi-{{ i }}-tma_pagi_foto">📁 Pilih Foto</label>
+            <input type="file" id="pagi-{{ i }}-tma_pagi_foto" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" class="hidden-file" data-preview="prev-tma-{{ i }}">
             <div class="preview-img" id="prev-tma-{{ i }}"></div>
           </td>
           <td>
-            <input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment" multiple data-preview="prev-pagi-{{ i }}">
+            <label class="btn-upload" for="pagi-{{ i }}-selfi">📁 Pilih Foto</label>
+            <input type="file" id="pagi-{{ i }}-selfi" name="pagi-{{ i }}-selfi" accept="image/*" multiple class="hidden-file" data-preview="prev-pagi-{{ i }}">
             <div class="preview-img multi" id="prev-pagi-{{ i }}"></div>
           </td>
         </tr>
@@ -155,15 +157,18 @@
               </select>
             </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-0">
+            <label class="btn-upload" for="kerja-{{ i }}-foto0">📁 Pilih Foto</label>
+            <input type="file" id="kerja-{{ i }}-foto0" name="kerja-{{ i }}-foto0" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-0">
             <div class="preview-img multi" id="prev-k-{{ i }}-0"></div>
           </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-05">
+            <label class="btn-upload" for="kerja-{{ i }}-foto05">📁 Pilih Foto</label>
+            <input type="file" id="kerja-{{ i }}-foto05" name="kerja-{{ i }}-foto05" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-05">
             <div class="preview-img multi" id="prev-k-{{ i }}-05"></div>
           </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-1">
+            <label class="btn-upload" for="kerja-{{ i }}-foto1">📁 Pilih Foto</label>
+            <input type="file" id="kerja-{{ i }}-foto1" name="kerja-{{ i }}-foto1" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-1">
             <div class="preview-img multi" id="prev-k-{{ i }}-1"></div>
             <button type="button" class="btn-remove" onclick="removeKerjaRow(this)" title="Hapus baris">×</button>
           </td>
@@ -180,12 +185,14 @@
     <div class="grid-2">
       <label>
         Foto TTD Pengamat
-        <input type="file" name="signature_pengamat" accept="image/*" data-preview="prev-ttd1">
+        <label class="btn-upload btn-upload-block" for="id-signature_pengamat">📁 Pilih Foto TTD</label>
+        <input type="file" id="id-signature_pengamat" name="signature_pengamat" accept="image/*" class="hidden-file" data-preview="prev-ttd1">
         <div class="preview-img" id="prev-ttd1"></div>
       </label>
       <label>
         Foto TTD Petugas
-        <input type="file" name="signature_petugas" accept="image/*" data-preview="prev-ttd2">
+        <label class="btn-upload btn-upload-block" for="id-signature_petugas">📁 Pilih Foto TTD</label>
+        <input type="file" id="id-signature_petugas" name="signature_petugas" accept="image/*" class="hidden-file" data-preview="prev-ttd2">
         <div class="preview-img" id="prev-ttd2"></div>
       </label>
     </div>
@@ -228,15 +235,18 @@ function buildKerjaRow(idx) {
         </select>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto0" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-0">
+        <label class="btn-upload" for="kerja-${idx}-foto0">📁 Pilih Foto</label>
+        <input type="file" id="kerja-${idx}-foto0" name="kerja-${idx}-foto0" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-0">
         <div class="preview-img multi" id="prev-k-${idx}-0"></div>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto05" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-05">
+        <label class="btn-upload" for="kerja-${idx}-foto05">📁 Pilih Foto</label>
+        <input type="file" id="kerja-${idx}-foto05" name="kerja-${idx}-foto05" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-05">
         <div class="preview-img multi" id="prev-k-${idx}-05"></div>
       </td>
       <td>
-        <input type="file" name="kerja-${idx}-foto1" accept="image/*" capture="environment" multiple data-preview="prev-k-${idx}-1">
+        <label class="btn-upload" for="kerja-${idx}-foto1">📁 Pilih Foto</label>
+        <input type="file" id="kerja-${idx}-foto1" name="kerja-${idx}-foto1" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-1">
         <div class="preview-img multi" id="prev-k-${idx}-1"></div>
         <button type="button" class="btn-remove" onclick="removeKerjaRow(this)" title="Hapus baris">×</button>
       </td>
@@ -294,6 +304,18 @@ function bindPreviewListeners() {
       const previewEl = document.getElementById(previewId);
       if (!previewEl) return;
       const files = Array.from(e.target.files || []);
+      // Update associated btn-upload label
+      const label = document.querySelector(`label[for="${input.id}"]`);
+      if (label) {
+        if (files.length === 0) {
+          label.textContent = label.dataset.originalText || label.textContent;
+          label.classList.remove('has-files');
+        } else {
+          if (!label.dataset.originalText) label.dataset.originalText = label.textContent;
+          label.textContent = `✅ ${files.length} foto dipilih`;
+          label.classList.add('has-files');
+        }
+      }
       if (!files.length) { previewEl.innerHTML = ''; return; }
       const html = files.map((file, i) => {
         return new Promise(resolve => {
@@ -322,6 +344,13 @@ function resetForm() {
   if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
   document.getElementById('form-laporan').reset();
   document.querySelectorAll('.preview-img').forEach(el => el.innerHTML = '');
+  // Reset all btn-upload labels to original text
+  document.querySelectorAll('.btn-upload[data-original-text]').forEach(l => {
+    l.textContent = l.dataset.originalText;
+    l.classList.remove('has-files');
+  });
+  // Re-bind for any newly added file inputs
+  bindPreviewListeners();
 }
 </script>
 
