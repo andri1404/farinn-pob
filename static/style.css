@@ -151,22 +151,27 @@ table.data input:focus, table.data select:focus {
 }
 table.data input[type="file"] {
   padding: 2px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+table.data input[type="file"]::file-selector-button {
+  padding: 2px 6px;
+  font-size: 0.72rem;
 }
 
 .action-bar {
-  position: sticky;
-  bottom: 1rem;
+  position: static;
   background: white;
-  padding: 0.85rem 1.25rem;
+  padding: 1rem 1.25rem;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1), 0 -2px 8px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
   margin: 1.5rem 0 2rem;
   border: 1px solid #e2e8f0;
-  z-index: 10;
 }
 
 .info-banner {
