@@ -14,34 +14,33 @@
 </header>
 
 <div class="info-banner">
-  ✏️ <strong>Semua field bisa diedit</strong> — klik aja buat ganti teks, nama, NIP, dll.
-  Default di bawah cuma contoh dari source Excel, silakan timpa sesuai kebutuhan.
+  ✏️ <strong>Semua field bisa diedit</strong> — tinggal klik dan ketik ulang. Default di bawah cuma contoh dari Excel, silakan timpa.
 </div>
 
 <form id="form-laporan" action="/generate" method="post" enctype="multipart/form-data" target="_blank">
 
   <!-- ============== META ============== -->
   <section class="card">
-    <h2>1. Identitas Petugas & Pengamat</h2>
-    <p class="hint">Nama, NIP, dan label bisa langsung diedit di field ini.</p>
+    <h2>1. Identitas Petugas &amp; Pengamat</h2>
+    <p class="hint">Tanggal, nama, NIP, dan label identitas untuk laporan ini.</p>
     <div class="grid-2">
       <label>
         Tanggal Laporan
         <input type="date" name="tanggal" value="{{ default_date }}" required>
       </label>
       <label>
-        Nama Petugas
-        <input type="text" name="nama" value="Ahmad Nafarin, S.I.Kom" placeholder="Ketik nama petugasmus" required>
+        Nama Petugas (yang buat laporan)
+        <input type="text" name="nama" value="Muhammad Andri, S.Pd" placeholder="Contoh: Ahmad Nafarin, S.I.Kom" required>
       </label>
       <label class="full">
-        Petugas / Lokasi Penugasan (text lengkap dari header Excel)
+        Unit / Lokasi Penugasan (text lengkap dari header Excel)
         <input type="text" name="petugas"
-               value="Juru Jaringan SS GT 2, 3, 4, 5, 6, dan Bul 1"
+               value="Petugas Pintu Air PPA ( BGT. 8,9,10,11,12 )"
                placeholder="Contoh: Juru Jaringan SS GT 2, 3, 4, 5, 6" required>
       </label>
       <label>
-        Label Petugas (untuk TTD)
-        <input type="text" name="petugas_label" value="Juru Jaringan" placeholder="Label di atas ttd">
+        Label Petugas (di atas TTD)
+        <input type="text" name="petugas_label" value="Petugas Pintu Air PPA" placeholder="Label di atas ttd">
       </label>
       <label>
         Nama Pengamat (yang "Mengetahui")
@@ -55,17 +54,13 @@
         NIP Petugas
         <input type="text" name="petugas_nip" value="" placeholder="NIP. ........................">
       </label>
-      <label>
-        Hari / Tanggal (auto-fill dari tanggal di atas, tapi bisa override)
-        <input type="text" name="hari_tanggal_override" placeholder="Auto: Senin/01/09/2026">
-      </label>
     </div>
   </section>
 
   <!-- ============== TABEL 1 — PEMERIKSAAN PAGI ============== -->
   <section class="card">
     <h2>2. Tabel 1 — Pemeriksaan Pagi</h2>
-    <p class="hint">Isi Waktu, TMA (Tinggi Muka Air), Status, Cuaca, TMA Pagi & foto Selfi per titik lokasi. Semua cell bisa diedit.</p>
+    <p class="hint">Pemeriksaan rutin pagi hari: lokasi, jenis pekerjaan, waktu, TMA, status, cuaca, TMA pagi (teks &amp; foto), dan foto selfie.</p>
     <table class="data" id="tbl-pagi">
       <thead>
         <tr>
@@ -73,18 +68,18 @@
           <th>Lokasi</th>
           <th>Jenis Pekerjaan</th>
           <th>Waktu</th>
-          <th>TMA</th>
+          <th>TMA (cm)</th>
           <th>Status</th>
           <th>Cuaca</th>
-          <th>TMA Pagi</th>
-          <th>Foto Selfi</th>
+          <th>TMA Pagi<br><small>(teks &amp; foto)</small></th>
+          <th>Foto Selfi<br><small>(bisa banyak)</small></th>
         </tr>
       </thead>
       <tbody>
         {% for i in range(1, 2) %}
         <tr>
           <td class="num">{{ i }}</td>
-          <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BRK.1"></td>
+          <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan rutin"></td>
           <td><input type="time" name="pagi-{{ i }}-waktu"></td>
           <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
@@ -107,7 +102,8 @@
                 <option>Hujan Lebat</option>
               </select>
             </td>
-          <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm" style="margin-bottom:4px">
+          <td>
+            <input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm" style="margin-bottom:4px">
             <input type="file" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" capture="environment" data-preview="prev-tma-{{ i }}">
             <div class="preview-img" id="prev-tma-{{ i }}"></div>
           </td>
@@ -124,7 +120,7 @@
   <!-- ============== TABEL 2 — KEGIATAN PEKERJAAN ============== -->
   <section class="card">
     <h2>3. Tabel 2 — Kegiatan Pekerjaan <button type="button" class="btn-add" id="btn-add-kerja">+ Tambah Baris</button></h2>
-    <p class="hint">Jam Mulai/Akhir, Alat yang digunakan, Cuaca, & dokumentasi foto (progress 0 → 0.5 → 1). Klik "+ Tambah Baris" untuk menambah.</p>
+    <p class="hint">Jam Mulai/Akhir, alat yang dipakai, cuaca, dan dokumentasi foto (progress 0% → 50% → 100%). Tambah baris lewat tombol hijau.</p>
     <table class="data" id="tbl-kerja">
       <thead>
         <tr>
@@ -135,16 +131,16 @@
           <th>Jam Akhir</th>
           <th>Alat</th>
           <th>Cuaca</th>
-          <th>Foto 0</th>
-          <th>Foto 0.5</th>
-          <th>Foto 1</th>
+          <th>Foto 0%<br><small>(sebelum)</small></th>
+          <th>Foto 50%<br><small>(proses)</small></th>
+          <th>Foto 100%<br><small>(selesai)</small></th>
         </tr>
       </thead>
       <tbody id="tbody-kerja">
         {% for i in range(1, 2) %}
         <tr class="row-kerja">
           <td class="num">{{ i }}</td>
-          <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BRK.2"></td>
+          <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="kerja-{{ i }}-jenis" placeholder="Pembersihan"></td>
           <td><input type="time" name="kerja-{{ i }}-jam_mulai"></td>
           <td><input type="time" name="kerja-{{ i }}-jam_akhir"></td>
@@ -159,16 +155,17 @@
               </select>
             </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-0">
-            <div class="preview-img" id="prev-k-{{ i }}-0"></div>
+            <input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-0">
+            <div class="preview-img multi" id="prev-k-{{ i }}-0"></div>
           </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-05">
-            <div class="preview-img" id="prev-k-{{ i }}-05"></div>
+            <input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-05">
+            <div class="preview-img multi" id="prev-k-{{ i }}-05"></div>
           </td>
           <td>
-            <input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-1">
-            <div class="preview-img" id="prev-k-{{ i }}-1"></div>
+            <input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment" multiple data-preview="prev-k-{{ i }}-1">
+            <div class="preview-img multi" id="prev-k-{{ i }}-1"></div>
+            <button type="button" class="btn-remove" onclick="removeKerjaRow(this)" title="Hapus baris">×</button>
           </td>
         </tr>
         {% endfor %}
@@ -179,7 +176,7 @@
   <!-- ============== TTD ============== -->
   <section class="card">
     <h2>4. Tanda Tangan (opsional)</h2>
-    <p class="hint">Upload scan/foto tanda tangan. Kosongkan kalau mau space ttd kosong (tulis manual setelah print).</p>
+    <p class="hint">Upload scan/foto tanda tangan. Kosongkan kalau mau space TTD kosong (tulis manual setelah print).</p>
     <div class="grid-2">
       <label>
         Foto TTD Pengamat
@@ -216,7 +213,7 @@ function buildKerjaRow(idx) {
   return `
     <tr class="row-kerja">
       <td class="num">${idx}</td>
-      <td><input type="text" name="kerja-${idx}-lokasi" placeholder="Contoh: BRK.2"></td>
+      <td><input type="text" name="kerja-${idx}-lokasi" placeholder="Contoh: BGT. 8"></td>
       <td><input type="text" name="kerja-${idx}-jenis" placeholder="Pembersihan"></td>
       <td><input type="time" name="kerja-${idx}-jam_mulai"></td>
       <td><input type="time" name="kerja-${idx}-jam_akhir"></td>
@@ -255,7 +252,6 @@ document.getElementById('btn-add-kerja').addEventListener('click', () => {
   kerjaRowCount++;
   const tbody = document.getElementById('tbody-kerja');
   tbody.insertAdjacentHTML('beforeend', buildKerjaRow(kerjaRowCount));
-  // Re-bind preview listener for new file inputs
   bindPreviewListeners();
 });
 
@@ -299,7 +295,6 @@ function bindPreviewListeners() {
       if (!previewEl) return;
       const files = Array.from(e.target.files || []);
       if (!files.length) { previewEl.innerHTML = ''; return; }
-      // Render all thumbnails
       const html = files.map((file, i) => {
         return new Promise(resolve => {
           const reader = new FileReader();
@@ -314,10 +309,8 @@ function bindPreviewListeners() {
   });
 }
 
-// Initial bind
 bindPreviewListeners();
 
-// --- Submit helpers ---
 function submitPreview() {
   const f = document.getElementById('form-laporan');
   f.action = '/preview';
