@@ -316,9 +316,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         1.3,  # TMA
         1.6,  # Status
         1.4,  # Cuaca
-        2.2,  # TMA Pagi (text + optional photo)
+        3.5,  # TMA Pagi (text + optional photo)
         2.5,  # Selfi (IMAGE)
-        5.0,  # filler (merged into Selfi body cells)
+        4.0,  # filler (merged into Selfi body cells)
     ]
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
 
@@ -347,7 +347,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         if tma_pagi_imgs:
             tma_pagi_cell = [
                 Paragraph(tma_pagi_text, meta_style) if tma_pagi_text else '',
-                ImageStack(tma_pagi_imgs[:2], max_w=2.0 * cm, max_h=1.5 * cm, layout='vertical')
+                ImageStack(tma_pagi_imgs[:2], max_w=3.2 * cm, max_h=2.0 * cm, layout='vertical')
             ]
             tma_pagi_rendered = tma_pagi_cell
         else:
