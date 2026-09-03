@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Preview — Laporan POB/JURU/PPA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .preview-page { width: 1100px; margin: 1.5rem auto; padding: 1rem; background: #fff; }
+    .preview-page table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .preview-page th, .preview-page td { border: 1px solid #333; padding: 4px 6px; text-align: center; vertical-align: middle; }
+    .preview-page th { background: #d9d9d9; }
+    .preview-page .lokasi-col { text-align: left; }
+    .preview-page h1, h3 { text-align: center; margin: 4px 0; }
+    .preview-page .meta-block { margin: 8px 0; font-size: 11px; }
+    .preview-page .ttd { display: flex; justify-content: space-between; margin-top: 30px; }
+    .preview-page .ttd div { width: 45%; text-align: center; }
+    .preview-page .ttd-sig { height: 80px; border-bottom: 1px dotted #999; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<div class="preview-page">
+  <h1>LAPORAN HARIAN KEGIATAN PEKERJAAN PETUGAS OPERASI BENDUNG / JURU JARINGAN / PPA</h1>
+  <h3>DAERAH IRIGASI RIAM KANAN</h3>
+
+  <div class="meta-block">
+    <table style="width:100%; border:none;">
+      <tr>
+        <td style="border:none; width:15%;"><b>Nama</b></td>
+        <td style="border:none; width:35%;">: {{ meta.nama }}</td>
+        <td style="border:none; width:15%;"><b>Hari / Tanggal</b></td>
+        <td style="border:none;">: {{ meta.hari_tanggal }}</td>
+      </tr>
+      <tr>
+        <td style="border:none;"><b>Petugas</b></td>
+        <td style="border:none;">: {{ meta.petugas }}</td>
+        <td style="border:none;"><b>Tanggal Cetak</b></td>
+        <td style="border:none;">: {{ meta.tanggal_cetak }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="margin: 6px 0; font-size: 12px;"><b>Tabel 1. Pemeriksaan Pagi</b></p>
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2">No.</th>
+        <th rowspan="2">Hari / Tanggal</th>
+        <th rowspan="2">Titik Lokasi Pekerjaan</th>
+        <th rowspan="2">Jenis Pekerjaan</th>
+        <th colspan="4">Pagi</th>
+        <th colspan="2">Dokumentasi</th>
+      </tr>
+      <tr>
+        <th>Waktu</th><th>TMA</th><th>Status</th><th>Cuaca</th>
+        <th>TMA Pagi</th><th>Selfi</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in pagi %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.hari_tanggal }}</td>
+        <td class="lokasi-col">{{ r.lokasi or '-' }}</td>
+        <td class="lokasi-col">{{ r.jenis or '-' }}</td>
+        <td>{{ r.waktu }}</td>
+        <td>{{ r.tma }}</td>
+        <td>{{ r.status }}</td>
+        <td>{{ r.cuaca }}</td>
+        <td>{{ r.tma_pagi }}</td>
+        <td>{% if r.selfi_img %}📷{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p style="margin: 10px 0 6px; font-size: 12px;"><b>Tabel 2. Kegiatan Pekerjaan</b></p>
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2">No.</th>
+        <th rowspan="2">Hari / Tanggal</th>
+        <th rowspan="2">Titik Lokasi Pekerjaan</th>
+        <th rowspan="2">Jenis Pekerjaan</th>
+        <th colspan="2">Jam</th>
+        <th rowspan="2">Alat</th>
+        <th rowspan="2">Cuaca</th>
+        <th colspan="3">Dokumentasi</th>
+      </tr>
+      <tr>
+        <th>Mulai</th><th>Akhir</th>
+        <th>Foto 0</th><th>Foto 0.5</th><th>Foto 1</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in kerja %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r.hari_tanggal }}</td>
+        <td class="lokasi-col">{{ r.lokasi or '-' }}</td>
+        <td class="lokasi-col">{{ r.jenis or '-' }}</td>
+        <td>{{ r.jam_mulai }}</td>
+        <td>{{ r.jam_akhir }}</td>
+        <td class="lokasi-col">{{ r.alat or '-' }}</td>
+        <td>{{ r.cuaca }}</td>
+        <td>{% if r.foto0_img %}📷{% endif %}</td>
+        <td>{% if r.foto05_img %}📷{% endif %}</td>
+        <td>{% if r.foto1_img %}📷{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="ttd">
+    <div>
+      <b>Mengetahui :</b><br>Pengamat DI. Riam Kanan<br>
+      <div class="ttd-sig"></div>
+      <b><u>{{ meta.pengamat }}</u></b><br>
+      <small>NIP. {{ meta.pengamat_nip }}</small>
+    </div>
+    <div>
+      <b>Dibuat oleh :</b><br>{{ meta.petugas_label }}<br>
+      <div class="ttd-sig"></div>
+      <b><u>{{ meta.nama }}</u></b><br>
+      <small>NIP. {{ meta.petugas_nip }}</small>
+    </div>
+  </div>
+
+  <p style="text-align:center; margin-top:14px; font-size:10px; color:#888;">
+    <i>Preview — dokumen final akan di-generate via tombol Generate PDF.</i>
+  </p>
+</div>
+
+<div style="text-align:center; margin: 20px;">
+  <a href="/" class="btn-primary" style="text-decoration:none; padding:10px 24px; background:#2563eb; color:white; border-radius:6px;">← Kembali Edit</a>
+</div>
+
+</body>
+</html>

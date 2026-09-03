@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Laporan Harian POB/JURU/PPA — DI Riam Kanan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header>
+  <h1>Laporan Harian POB / JURU JARINGAN / PPA</h1>
+  <p>Daerah Irigasi Riam Kanan</p>
+</header>
+
+<form id="form-laporan" action="/generate" method="post" enctype="multipart/form-data" target="_blank">
+
+  <!-- ============== META ============== -->
+  <section class="card">
+    <h2>1. Identitas Petugas</h2>
+    <div class="grid-2">
+      <label>
+        Tanggal Laporan
+        <input type="date" name="tanggal" value="{{ default_date }}" required>
+      </label>
+      <label>
+        Nama Petugas
+        <input type="text" name="nama" value="Muhammad Yasir" required>
+      </label>
+      <label class="full">
+        Petugas / Lokasi Penugasan
+        <input type="text" name="petugas"
+               value="Juru Jaringan (BRK.1, BRK.2, BRK.8, BRK.9, BC.1, BC.2, BC.3, BC.4, BC.5 & Shivon)" required>
+      </label>
+      <label>
+        Label Petugas (untuk TTD)
+        <input type="text" name="petugas_label" value="Juru Jaringan">
+      </label>
+      <label>
+        Nama Pengamat (Mengetahui)
+        <input type="text" name="pengamat" value="AKHMAD MUHAZIR" required>
+      </label>
+      <label>
+        NIP Pengamat
+        <input type="text" name="pengamat_nip" placeholder="NIP. ........................">
+      </label>
+      <label>
+        NIP Petugas
+        <input type="text" name="petugas_nip" placeholder="NIP. ........................">
+      </label>
+    </div>
+  </section>
+
+  <!-- ============== TABEL 1 — PEMERIKSAAN PAGI ============== -->
+  <section class="card">
+    <h2>2. Pemeriksaan Pagi</h2>
+    <p class="hint">Waktu, TMA (Tinggi Muka Air), Status, Cuaca, TMA Pagi & foto Selfi.</p>
+    <table class="data" id="tbl-pagi">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Lokasi</th>
+          <th>Jenis Pekerjaan</th>
+          <th>Waktu</th>
+          <th>TMA</th>
+          <th>Status</th>
+          <th>Cuaca</th>
+          <th>TMA Pagi</th>
+          <th>Foto Selfi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(1, 7) %}
+        <tr>
+          <td class="num">{{ i }}</td>
+          <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BRK.1"></td>
+          <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan"></td>
+          <td><input type="time" name="pagi-{{ i }}-waktu"></td>
+          <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
+          <td>
+            <select name="pagi-{{ i }}-status">
+                <option value="">-</option>
+                <option>Normal</option>
+                <option>Waspada</option>
+                <option>Siaga</option>
+                <option>Awas</option>
+              </select>
+            </td>
+          <td>
+            <select name="pagi-{{ i }}-cuaca">
+                <option value="">-</option>
+                <option>Cerah</option>
+                <option>Berawan</option>
+                <option>Hujan Ringan</option>
+                <option>Hujan Lebat</option>
+              </select>
+            </td>
+          <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm"></td>
+          <td><input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============== TABEL 2 — KEGIATAN PEKERJAAN ============== -->
+  <section class="card">
+    <h2>3. Kegiatan Pekerjaan</h2>
+    <p class="hint">Jam Mulai/Akhir, Alat, Cuaca, & dokumentasi foto (0 → 0.5 → 1 progress).</p>
+    <table class="data" id="tbl-kerja">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Lokasi</th>
+          <th>Jenis Pekerjaan</th>
+          <th>Jam Mulai</th>
+          <th>Jam Akhir</th>
+          <th>Alat</th>
+          <th>Cuaca</th>
+          <th>Foto 0</th>
+          <th>Foto 0.5</th>
+          <th>Foto 1</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(1, 5) %}
+        <tr>
+          <td class="num">{{ i }}</td>
+          <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BRK.2"></td>
+          <td><input type="text" name="kerja-{{ i }}-jenis" placeholder="Pembersihan"></td>
+          <td><input type="time" name="kerja-{{ i }}-jam_mulai"></td>
+          <td><input type="time" name="kerja-{{ i }}-jam_akhir"></td>
+          <td><input type="text" name="kerja-{{ i }}-alat" placeholder="Cangkul, Sabit, dll"></td>
+          <td>
+            <select name="kerja-{{ i }}-cuaca">
+                <option value="">-</option>
+                <option>Cerah</option>
+                <option>Berawan</option>
+                <option>Hujan Ringan</option>
+                <option>Hujan Lebat</option>
+              </select>
+            </td>
+          <td><input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment"></td>
+          <td><input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment"></td>
+          <td><input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============== TTD ============== -->
+  <section class="card">
+    <h2>4. Tanda Tangan</h2>
+    <p class="hint">Upload scan/foto tanda tangan. Kosongkan untuk space tanda tangan kosong.</p>
+    <div class="grid-2">
+      <label>
+        Foto TTD Pengamat (Akhmad Muhazir)
+        <input type="file" name="signature_pengamat" accept="image/*">
+      </label>
+      <label>
+        Foto TTD Petugas
+        <input type="file" name="signature_petugas" accept="image/*">
+      </label>
+    </div>
+  </section>
+
+  <!-- ============== BULK ============== -->
+  <section class="card">
+    <h2>5. Generate Satu Bulan (ZIP)</h2>
+    <p class="hint">Data form di atas dipakai untuk SEMUA hari di bulan. TTD cuma sekali.</p>
+    <div class="grid-3">
+      <label>
+        Tahun
+        <input type="number" name="bulk_year" value="{{ default_date[:4] }}" min="2024" max="2030">
+      </label>
+      <label>
+        Bulan
+        <select name="bulk_month">
+          {% for m in range(1, 13) %}
+          <option value="{{ m }}" {% if m == default_date[5:7]|int %}selected{% endif %}>
+            {{ ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][m-1] }}
+          </option>
+          {% endfor %}
+        </select>
+      </label>
+      <div></div>
+    </div>
+    <button type="button" class="btn-secondary" onclick="submitBulk()">
+      📦 Generate ZIP Satu Bulan
+    </button>
+  </section>
+
+  <!-- ============== ACTION ============== -->
+  <div class="action-bar">
+    <button type="button" class="btn-secondary" onclick="submitPreview()">👁 Preview</button>
+    <button type="submit" class="btn-primary">📄 Generate PDF</button>
+  </div>
+
+</form>
+
+<footer>
+  <small>© Pengamat DI Riam Kanan — Built with Flask + ReportLab, deployed on Vercel</small>
+</footer>
+
+<script>
+function submitPreview() {
+  const f = document.getElementById('form-laporan');
+  f.action = '/preview';
+  f.target = '_self';
+  f.submit();
+  setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
+}
+function submitBulk() {
+  const f = document.getElementById('form-laporan');
+  f.action = '/bulk';
+  f.target = '_blank';
+  f.submit();
+  setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
+}
+</script>
+
+</body>
+</html>
