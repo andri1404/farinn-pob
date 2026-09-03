@@ -192,7 +192,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     story.append(Spacer(1, 0.15 * cm))
 
     # ---------- TABEL 1 - PEMERIKSAAN PAGI ----------
-    # 11 cols total. Sum must = USABLE_W/cm (~28.9)
+    # 11 cols total. Cols 8=TMA Pagi (text), 9=Selfi (image). Col 10 = filler merged into Selfi for extra width.
     col_widths_t1_cm = [
         0.8,  # No
         2.6,  # Hari/Tanggal
@@ -202,12 +202,10 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         1.4,  # TMA
         1.6,  # Status
         1.5,  # Cuaca
-        1.9,  # TMA Pagi
-        3.3,  # Selfi (img)
-        5.4,  # stretchable filler (merged header span)
+        1.8,  # TMA Pagi (TEX: e.g. "30 cm")
+        3.2,  # Selfi (IMAGE)
+        5.6,  # filler (merged into Selfi body cells)
     ]
-    # Re-balance: filler should not be in final merged area; we'll handle
-    # via SPAN + layout. Total ~28.9
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
 
     story.append(Paragraph("<b>Tabel 1. Pemeriksaan Pagi</b>", meta_style))
@@ -235,8 +233,8 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             str(row.get('tma', '')),
             str(row.get('status', '')),
             str(row.get('cuaca', '')),
-            str(row.get('tma_pagi', '')) if not row.get('tma_pagi_img') else row['tma_pagi_img'],
-            row.get('selfi_img') or '',
+            str(row.get('tma_pagi', '')),  # ALWAYS text — TMA Pagi is a measurement value
+            row.get('selfi_img') or '',     # Selfi = image
             '',
         ])
 
@@ -267,9 +265,9 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('SPAN', (2, 0), (2, 1)),
         ('SPAN', (3, 0), (3, 1)),
         ('SPAN', (4, 0), (7, 0)),    # Pagi (4 cols)
-        ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (3 cols incl. filler)
-        # Body cell merges: span last filler cell into prior empty
-        ('SPAN', (10, 2), (10, -1)),  # merge filler column on body rows so it acts as extra width for TMA Pagi / Selfi
+        ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (TMA Pagi + Selfi + filler)
+        # Body: merge filler (col 10) into Selfi (col 9) so image gets full width
+        ('SPAN', (9, 2), (10, -1)),
     ]))
     story.append(t1)
     story.append(Spacer(1, 0.25 * cm))
