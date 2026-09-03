@@ -29,7 +29,7 @@ from datetime import datetime, date
 from io import BytesIO
 
 from flask import Flask, render_template, request, send_file, jsonify
-from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import (
@@ -238,17 +238,17 @@ def decode_b64(b64str, max_px=900):
 
 # ----------------- PDF builder -----------------
 
-# Layout A4 landscape (29.7 x 21.0 cm)
-PAGE_W, PAGE_H = landscape(A4)
+# Layout Letter landscape (792 x 612 pts = 28.0 x 21.6 cm) — matches sample from Excel
+PAGE_W, PAGE_H = landscape(letter)
 MARGIN = 0.4 * cm
-USABLE_W = PAGE_W - 2 * MARGIN  # ~28.9 cm
+USABLE_W = PAGE_W - 2 * MARGIN  # ~27.2 cm
 
 
 def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas):
     """Build single Laporan PDF in memory -> BytesIO."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
-        buf, pagesize=landscape(A4),
+        buf, pagesize=landscape(letter),
         leftMargin=MARGIN, rightMargin=MARGIN,
         topMargin=MARGIN, bottomMargin=MARGIN,
         title="Laporan Harian POB/JURU/PPA",
@@ -280,6 +280,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     story.append(Paragraph("DAERAH IRIGASI RIAM KANAN", sub_style))
 
     # Metadata block (Nama, Petugas, Hari/Tanggal)
+    # Width: 2.0 + 9.5 + 2.5 + 12.8 = 26.8 cm (fits Letter 27.2 cm)
     meta_table = Table(
         [
             [Paragraph("<b>Nama</b>", meta_style),
@@ -291,7 +292,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
              Paragraph("<b>Tanggal Cetak</b>", meta_style),
              Paragraph(": " + str(meta.get('tanggal_cetak', '-')), meta_style)],
         ],
-        colWidths=[2.0 * cm, 10.5 * cm, 2.5 * cm, 13.9 * cm],
+        colWidths=[1.8 * cm, 9.5 * cm, 2.5 * cm, 13.0 * cm],
     )
     meta_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -305,18 +306,19 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     # ---------- TABEL 1 - PEMERIKSAAN PAGI ----------
     # 11 cols total. Cols 8=TMA Pagi (text), 9=Selfi (image). Col 10 = filler merged into Selfi for extra width.
+    # Total ~27.0 cm to fit Letter landscape (27.2 cm usable)
     col_widths_t1_cm = [
         0.8,  # No
-        2.6,  # Hari/Tanggal
-        4.4,  # Lokasi
-        4.4,  # Jenis
-        1.6,  # Waktu
-        1.4,  # TMA
+        2.5,  # Hari/Tanggal
+        4.0,  # Lokasi
+        4.0,  # Jenis
+        1.5,  # Waktu
+        1.3,  # TMA
         1.6,  # Status
-        1.5,  # Cuaca
-        2.4,  # TMA Pagi (text + optional photo)
-        2.6,  # Selfi (IMAGE)
-        5.4,  # filler (merged into Selfi body cells)
+        1.4,  # Cuaca
+        2.2,  # TMA Pagi (text + optional photo)
+        2.5,  # Selfi (IMAGE)
+        5.0,  # filler (merged into Selfi body cells)
     ]
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
 
@@ -401,18 +403,19 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     # ---------- TABEL 2 - KEGIATAN PEKERJAAN ----------
     # 11 cols: No | Hari/Tgl | Lokasi | Jenis | Jam Mulai | Jam Akhir | Cuaca | Alat | Foto0 | Foto0.5 | Foto1
+    # Total ~27.0 cm to fit Letter landscape (27.2 cm usable)
     col_widths_t2_cm = [
-        0.8,  # No
-        2.6,  # Hari/Tanggal
-        4.0,  # Lokasi
-        4.0,  # Jenis
-        1.5,  # Jam Mulai
-        1.5,  # Jam Akhir
-        1.4,  # Cuaca
-        2.5,  # Alat
+        0.7,  # No
+        2.4,  # Hari/Tanggal
+        3.5,  # Lokasi
+        3.5,  # Jenis
+        1.4,  # Jam Mulai
+        1.4,  # Jam Akhir
+        1.3,  # Cuaca
+        2.2,  # Alat
         3.4,  # Foto 0
-        3.4,  # Foto 0.5
-        3.8,  # Foto 1
+        3.4,  # Foto 1
+        3.5,  # Foto 2 (was Foto 1)
     ]
     col_widths_t2 = [w * cm for w in col_widths_t2_cm]
 
