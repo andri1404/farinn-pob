@@ -9,15 +9,21 @@
 <body>
 
 <header>
-  <h1>Laporan Harian POB / JURU JARINGAN / PPA</h1>
+  <h1>📋 Laporan Harian POB / JURU JARINGAN / PPA</h1>
   <p>Daerah Irigasi Riam Kanan</p>
 </header>
+
+<div class="info-banner">
+  ✏️ <strong>Semua field bisa diedit</strong> — klik aja buat ganti teks, nama, NIP, dll.
+  Default di bawah cuma contoh dari source Excel, silakan timpa sesuai kebutuhan.
+</div>
 
 <form id="form-laporan" action="/generate" method="post" enctype="multipart/form-data" target="_blank">
 
   <!-- ============== META ============== -->
   <section class="card">
-    <h2>1. Identitas Petugas</h2>
+    <h2>1. Identitas Petugas & Pengamat</h2>
+    <p class="hint">Nama, NIP, dan label bisa langsung diedit di field ini.</p>
     <div class="grid-2">
       <label>
         Tanggal Laporan
@@ -25,36 +31,41 @@
       </label>
       <label>
         Nama Petugas
-        <input type="text" name="nama" value="Muhammad Yasir" required>
+        <input type="text" name="nama" value="Muhammad Yasir" placeholder="Ketik nama petugasmus" required>
       </label>
       <label class="full">
-        Petugas / Lokasi Penugasan
+        Petugas / Lokasi Penugasan (text lengkap dari header Excel)
         <input type="text" name="petugas"
-               value="Juru Jaringan (BRK.1, BRK.2, BRK.8, BRK.9, BC.1, BC.2, BC.3, BC.4, BC.5 & Shivon)" required>
+               value="Juru Jaringan (BRK.1, BRK.2, BRK.8, BRK.9, BC.1, BC.2, BC.3, BC.4, BC.5 & Shivon)"
+               placeholder="Contoh: Juru Jaringan (BRK.1, BRK.2, BRK.8, ...)" required>
       </label>
       <label>
         Label Petugas (untuk TTD)
-        <input type="text" name="petugas_label" value="Juru Jaringan">
+        <input type="text" name="petugas_label" value="Juru Jaringan" placeholder="Label di atas ttd">
       </label>
       <label>
-        Nama Pengamat (Mengetahui)
-        <input type="text" name="pengamat" value="AKHMAD MUHAZIR" required>
+        Nama Pengamat (yang "Mengetahui")
+        <input type="text" name="pengamat" value="AKHMAD MUHAZIR" placeholder="Nama pengamat" required>
       </label>
       <label>
         NIP Pengamat
-        <input type="text" name="pengamat_nip" placeholder="NIP. ........................">
+        <input type="text" name="pengamat_nip" value="" placeholder="NIP. ........................">
       </label>
       <label>
         NIP Petugas
-        <input type="text" name="petugas_nip" placeholder="NIP. ........................">
+        <input type="text" name="petugas_nip" value="" placeholder="NIP. ........................">
+      </label>
+      <label>
+        Hari / Tanggal (auto-fill dari tanggal di atas, tapi bisa override)
+        <input type="text" name="hari_tanggal_override" placeholder="Auto: Senin/01/09/2026">
       </label>
     </div>
   </section>
 
   <!-- ============== TABEL 1 — PEMERIKSAAN PAGI ============== -->
   <section class="card">
-    <h2>2. Pemeriksaan Pagi</h2>
-    <p class="hint">Waktu, TMA (Tinggi Muka Air), Status, Cuaca, TMA Pagi & foto Selfi.</p>
+    <h2>2. Tabel 1 — Pemeriksaan Pagi</h2>
+    <p class="hint">Isi Waktu, TMA (Tinggi Muka Air), Status, Cuaca, TMA Pagi & foto Selfi per titik lokasi. Semua cell bisa diedit.</p>
     <table class="data" id="tbl-pagi">
       <thead>
         <tr>
@@ -74,12 +85,12 @@
         <tr>
           <td class="num">{{ i }}</td>
           <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BRK.1"></td>
-          <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan"></td>
+          <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan rutin"></td>
           <td><input type="time" name="pagi-{{ i }}-waktu"></td>
           <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
           <td>
             <select name="pagi-{{ i }}-status">
-                <option value="">-</option>
+                <option value="">— pilih —</option>
                 <option>Normal</option>
                 <option>Waspada</option>
                 <option>Siaga</option>
@@ -88,7 +99,7 @@
             </td>
           <td>
             <select name="pagi-{{ i }}-cuaca">
-                <option value="">-</option>
+                <option value="">— pilih —</option>
                 <option>Cerah</option>
                 <option>Berawan</option>
                 <option>Hujan Ringan</option>
@@ -96,7 +107,10 @@
               </select>
             </td>
           <td><input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm"></td>
-          <td><input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment"></td>
+          <td>
+            <input type="file" name="pagi-{{ i }}-selfi" accept="image/*" capture="environment" data-preview="prev-pagi-{{ i }}">
+            <div class="preview-img" id="prev-pagi-{{ i }}"></div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -105,8 +119,8 @@
 
   <!-- ============== TABEL 2 — KEGIATAN PEKERJAAN ============== -->
   <section class="card">
-    <h2>3. Kegiatan Pekerjaan</h2>
-    <p class="hint">Jam Mulai/Akhir, Alat, Cuaca, & dokumentasi foto (0 → 0.5 → 1 progress).</p>
+    <h2>3. Tabel 2 — Kegiatan Pekerjaan</h2>
+    <p class="hint">Jam Mulai/Akhir, Alat yang digunakan, Cuaca, & dokumentasi foto (progress 0 → 0.5 → 1).</p>
     <table class="data" id="tbl-kerja">
       <thead>
         <tr>
@@ -133,16 +147,25 @@
           <td><input type="text" name="kerja-{{ i }}-alat" placeholder="Cangkul, Sabit, dll"></td>
           <td>
             <select name="kerja-{{ i }}-cuaca">
-                <option value="">-</option>
+                <option value="">— pilih —</option>
                 <option>Cerah</option>
                 <option>Berawan</option>
                 <option>Hujan Ringan</option>
                 <option>Hujan Lebat</option>
               </select>
             </td>
-          <td><input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment"></td>
-          <td><input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment"></td>
-          <td><input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment"></td>
+          <td>
+            <input type="file" name="kerja-{{ i }}-foto0" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-0">
+            <div class="preview-img" id="prev-k-{{ i }}-0"></div>
+          </td>
+          <td>
+            <input type="file" name="kerja-{{ i }}-foto05" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-05">
+            <div class="preview-img" id="prev-k-{{ i }}-05"></div>
+          </td>
+          <td>
+            <input type="file" name="kerja-{{ i }}-foto1" accept="image/*" capture="environment" data-preview="prev-k-{{ i }}-1">
+            <div class="preview-img" id="prev-k-{{ i }}-1"></div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
@@ -151,16 +174,18 @@
 
   <!-- ============== TTD ============== -->
   <section class="card">
-    <h2>4. Tanda Tangan</h2>
-    <p class="hint">Upload scan/foto tanda tangan. Kosongkan untuk space tanda tangan kosong.</p>
+    <h2>4. Tanda Tangan (opsional)</h2>
+    <p class="hint">Upload scan/foto tanda tangan. Kosongkan kalau mau space ttd kosong (tulis manual setelah print).</p>
     <div class="grid-2">
       <label>
-        Foto TTD Pengamat (Akhmad Muhazir)
-        <input type="file" name="signature_pengamat" accept="image/*">
+        Foto TTD Pengamat
+        <input type="file" name="signature_pengamat" accept="image/*" data-preview="prev-ttd1">
+        <div class="preview-img" id="prev-ttd1"></div>
       </label>
       <label>
         Foto TTD Petugas
-        <input type="file" name="signature_petugas" accept="image/*">
+        <input type="file" name="signature_petugas" accept="image/*" data-preview="prev-ttd2">
+        <div class="preview-img" id="prev-ttd2"></div>
       </label>
     </div>
   </section>
@@ -168,7 +193,7 @@
   <!-- ============== BULK ============== -->
   <section class="card">
     <h2>5. Generate Satu Bulan (ZIP)</h2>
-    <p class="hint">Data form di atas dipakai untuk SEMUA hari di bulan. TTD cuma sekali.</p>
+    <p class="hint">Data form di atas dipakai untuk SEMUA hari di bulan yang dipilih. TTD & foto kerja cuma dipakai sekali.</p>
     <div class="grid-3">
       <label>
         Tahun
@@ -193,6 +218,7 @@
 
   <!-- ============== ACTION ============== -->
   <div class="action-bar">
+    <button type="button" class="btn-ghost" onclick="resetForm()">🗑 Reset Form</button>
     <button type="button" class="btn-secondary" onclick="submitPreview()">👁 Preview</button>
     <button type="submit" class="btn-primary">📄 Generate PDF</button>
   </div>
@@ -204,6 +230,23 @@
 </footer>
 
 <script>
+// --- Image preview before submit ---
+document.querySelectorAll('input[type="file"][data-preview]').forEach(input => {
+  input.addEventListener('change', e => {
+    const previewId = input.dataset.preview;
+    const previewEl = document.getElementById(previewId);
+    if (!previewEl) return;
+    const file = e.target.files[0];
+    if (!file) { previewEl.innerHTML = ''; return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      previewEl.innerHTML = `<img src="${ev.target.result}" alt="preview">`;
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
+// --- Submit helpers ---
 function submitPreview() {
   const f = document.getElementById('form-laporan');
   f.action = '/preview';
@@ -217,6 +260,11 @@ function submitBulk() {
   f.target = '_blank';
   f.submit();
   setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
+}
+function resetForm() {
+  if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
+  document.getElementById('form-laporan').reset();
+  document.querySelectorAll('.preview-img').forEach(el => el.innerHTML = '');
 }
 </script>
 

@@ -83,7 +83,19 @@ table.data input[type="file"] { padding: 2px; }
   margin: 1rem 0 2rem;
 }
 
-.btn-primary, .btn-secondary {
+.info-banner {
+  max-width: 1200px;
+  margin: 1rem auto 0;
+  padding: 0.75rem 1.25rem;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  color: #78350f;
+  font-size: 0.9rem;
+}
+
+.btn-primary, .btn-secondary, .btn-ghost {
   padding: 10px 22px;
   border: none; border-radius: 6px;
   font-size: 1rem; font-weight: 600;
@@ -99,6 +111,22 @@ table.data input[type="file"] { padding: 2px; }
   background: #e2e8f0; color: #1e293b;
 }
 .btn-secondary:hover { background: #cbd5e1; }
+.btn-ghost {
+  background: transparent; color: #64748b; border: 1px solid #cbd5e1;
+}
+.btn-ghost:hover { background: #f1f5f9; }
+
+.preview-img {
+  margin-top: 4px;
+  min-height: 4px;
+}
+.preview-img img {
+  max-width: 90px;
+  max-height: 60px;
+  object-fit: cover;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+}
 
 footer { text-align: center; padding: 1.5rem 1rem; color: #94a3b8; font-size: 0.85rem; }
 
