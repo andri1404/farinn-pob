@@ -209,20 +209,37 @@
   <!-- ============== TTD ============== -->
   <section class="card">
     <h2>4. Tanda Tangan (opsional)</h2>
-    <p class="hint">Upload scan/foto tanda tangan. Kosongkan kalau mau space TTD kosong (tulis manual setelah print).</p>
+    <p class="hint">Tanda tangan bisa <b>langsung ditulis di layar pakai jari</b> — gak perlu foto/scan.
+      Kosongkan saja kalau mau ruang TTD kosong (ditulis manual setelah dicetak).</p>
     <div class="grid-2">
-      <label>
-        Foto TTD Pengamat
-        <label class="btn-upload btn-upload-block" for="id-signature_pengamat">📁 Pilih Foto TTD</label>
-        <input type="file" id="id-signature_pengamat" name="signature_pengamat" accept="image/*" class="hidden-file" data-preview="prev-ttd1">
-        <div class="preview-img" id="prev-ttd1"></div>
-      </label>
-      <label>
-        Foto TTD Petugas
-        <label class="btn-upload btn-upload-block" for="id-signature_petugas">📁 Pilih Foto TTD</label>
-        <input type="file" id="id-signature_petugas" name="signature_petugas" accept="image/*" class="hidden-file" data-preview="prev-ttd2">
-        <div class="preview-img" id="prev-ttd2"></div>
-      </label>
+      <div class="sig-wrap">
+        <div class="sig-label">✍️ TTD Pengamat <span id="sig-txt-pengamat">AKHMAD MUHAZIR</span></div>
+        <canvas class="sig-pad" id="pad-pengamat" data-target="id-signature_pengamat"
+                width="640" height="200" aria-label="Tanda tangan pengamat"></canvas>
+        <div class="sig-actions">
+          <button type="button" class="btn-ghost btn-mini" onclick="clearPad('pad-pengamat')">🧽 Hapus</button>
+          <button type="button" class="btn-ghost btn-mini" onclick="toggleUpload('up-pengamat')">📁 Pakai foto</button>
+        </div>
+        <div class="sig-upload" id="up-pengamat" style="display:none">
+          <label class="btn-upload btn-upload-block" for="id-signature_pengamat">📁 Pilih Foto TTD</label>
+          <input type="file" id="id-signature_pengamat" name="signature_pengamat" accept="image/*" class="hidden-file" data-preview="prev-ttd1">
+          <div class="preview-img" id="prev-ttd1"></div>
+        </div>
+      </div>
+      <div class="sig-wrap">
+        <div class="sig-label">✍️ TTD Petugas <span id="sig-txt-petugas">MUHAMMAD ANDRI</span></div>
+        <canvas class="sig-pad" id="pad-petugas" data-target="id-signature_petugas"
+                width="640" height="200" aria-label="Tanda tangan petugas"></canvas>
+        <div class="sig-actions">
+          <button type="button" class="btn-ghost btn-mini" onclick="clearPad('pad-petugas')">🧽 Hapus</button>
+          <button type="button" class="btn-ghost btn-mini" onclick="toggleUpload('up-petugas')">📁 Pakai foto</button>
+        </div>
+        <div class="sig-upload" id="up-petugas" style="display:none">
+          <label class="btn-upload btn-upload-block" for="id-signature_petugas">📁 Pilih Foto TTD</label>
+          <input type="file" id="id-signature_petugas" name="signature_petugas" accept="image/*" class="hidden-file" data-preview="prev-ttd2">
+          <div class="preview-img" id="prev-ttd2"></div>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -350,6 +367,109 @@ document.addEventListener('blur', e => {
   if (t && t.classList && t.classList.contains('inp-jam')) normalizeJam(t);
 }, true);
 
+// --- TTD: gambar langsung di layar (canvas + jari/stylus/mouse) ---
+// Bitmap canvas-nya TETAP (640x200). CSS yang menskalakan tampilannya, jadi
+// koordinat digambar dikonversi pakai rasio bitmap/ukuran tampil. Dengan cara ini
+// tanda tangan nggak rusak/geser kalau HP diputar (rotate) atau di-resize.
+const SIG_BITMAP_W = 640, SIG_BITMAP_H = 200;
+const SIG_INK = '#111827', SIG_LINE = 4.5;
+const PADS = {};
+
+function _sigCtx(cv) {
+  const ctx = cv.getContext('2d');
+  ctx.lineWidth = SIG_LINE;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = SIG_INK;
+  return ctx;
+}
+
+function initPad(id) {
+  const cv = document.getElementById(id);
+  if (!cv) return;
+  PADS[id] = { empty: true, drawing: false };
+
+  const coords = e => {
+    const r = cv.getBoundingClientRect();
+    return [
+      (e.clientX - r.left) * (cv.width / (r.width || cv.width)),
+      (e.clientY - r.top) * (cv.height / (r.height || cv.height)),
+    ];
+  };
+  const ctx = _sigCtx(cv);
+
+  cv.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+    PADS[id].drawing = true;
+    PADS[id].empty = false;
+    const [x, y] = coords(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (!PADS[id] || !PADS[id].drawing) return;
+    e.preventDefault();
+    const [x, y] = coords(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  });
+  const stop = () => { if (PADS[id]) PADS[id].drawing = false; };
+  cv.addEventListener('pointerup', stop);
+  cv.addEventListener('pointercancel', stop);
+  cv.addEventListener('pointerleave', stop);
+  // layar sentuh lama yang belum dukung Pointer Events
+  cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+}
+
+function clearPad(id) {
+  const cv = document.getElementById(id);
+  if (!cv || !PADS[id]) return;
+  cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+  PADS[id].empty = true;
+  PADS[id].drawing = false;
+}
+
+function isPadEmpty(id) { return !PADS[id] || PADS[id].empty; }
+
+function toggleUpload(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = (el.style.display === 'none' ? 'block' : 'none');
+}
+
+function initAllPads() {
+  ['pad-pengamat', 'pad-petugas'].forEach(initPad);
+}
+
+// Kalau user malah pilih foto TTD, hapus gambar tangan biar nggak dobel.
+function resetPadForInput(inputId) {
+  if (!inputId || inputId.indexOf('id-signature_') !== 0) return;
+  clearPad('pad-' + inputId.replace('id-signature_', ''));
+}
+
+// Ubah gambar jadi PNG dan titipkan ke <input type=file> yang sudah ada,
+// supaya server (parse_form) tetap nerima field 'signature_pengamat/petugas'.
+async function injectSignatures(form) {
+  const list = ['pad-pengamat', 'pad-petugas'];
+  for (const id of list) {
+    if (isPadEmpty(id)) continue;
+    const cv = document.getElementById(id);
+    const target = cv && cv.dataset.target;
+    if (!cv || !target) continue;
+    const blob = await new Promise(res => cv.toBlob(res, 'image/png'));
+    if (!blob) continue;
+    const inp = document.getElementById(target);
+    if (!inp) continue;
+    try {
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], target + '.png', { type: 'image/png', lastModified: Date.now() }));
+      inp.files = dt.files;
+    } catch (e) {
+      console.warn('TTD: browser nggak bisa set input.files', e);
+    }
+  }
+}
+
 // --- Deteksi browser dalam aplikasi (Telegram / WhatsApp / FB / IG) ---
 // Di WebView itu, tombol download PDF kadang nggak jalan. Kasih arahan.
 (function inAppTip() {
@@ -459,6 +579,8 @@ function bindPreviewListeners() {
       const previewEl = document.getElementById(previewId);
       if (!previewEl) return;
       const files = Array.from(e.target.files || []);
+      // Kalau ini TTD dan user malah pilih foto: hapus gambar tangan biar gak dobel.
+      resetPadForInput(input.id);
       // Update associated btn-upload label
       const label = document.querySelector(`label[for="${input.id}"]`);
       if (label) {
@@ -586,6 +708,8 @@ async function submitFormTo(target, newTab) {
   if (btnG) btnG.disabled = true;
   try {
     const { total, count } = await prepareForm(f);
+    // Titipkan gambar tanda tangan ke field signature_* sebelum dikirim.
+    await injectSignatures(f);
     if (count) {
       const mb = (total / 1048576).toFixed(2);
       if (total > UPLOAD_BUDGET) {
@@ -653,6 +777,20 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Siapkan pad tanda tangan + samakan label namanya dengan field identitas.
+initAllPads();
+(function syncSigNames() {
+  const pairs = [['nama', 'sig-txt-petugas'], ['pengamat', 'sig-txt-pengamat']];
+  pairs.forEach(([inpName, labelId]) => {
+    const inp = document.querySelector(`input[name="${inpName}"]`);
+    const lbl = document.getElementById(labelId);
+    if (!inp || !lbl) return;
+    const sync = () => { lbl.textContent = (inp.value || '').toUpperCase() || '—'; };
+    inp.addEventListener('input', sync);
+    sync();
+  });
+})();
+
 function resetForm() {
   if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
   document.getElementById('form-laporan').reset();
@@ -673,6 +811,13 @@ function resetForm() {
   }
   syncTanggal();
   setStatus('');
+  // Bersihin pad tanda tangan + sembunyikan lagi blok upload TTD
+  clearPad('pad-pengamat');
+  clearPad('pad-petugas');
+  ['up-pengamat', 'up-petugas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
 }
