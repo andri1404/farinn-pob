@@ -740,21 +740,116 @@ a, button, label, select, input,
 }
 
 @media (max-width: 820px) {
-  .page-head { padding: 12px 12px 0; }
+
+  /* ============ 2. Navbar diringkas ============
+     Menu fungsional cuma 1 ("Laporan Harian", yang lagi dibuka juga), 2 lainnya
+     masih placeholder. Di HP menunya disembunyikan -> navbar jadi 1 baris. */
+  .navbar-inner { padding: 9px 12px; gap: 10px; }
+  .navbar-brand { font-size: 16px; }
+  .navbar-links { display: none; }
+
+  /* ============ 3. Breadcrumb disembunyikan ============
+     Isinya cuma 2 link yang balik ke halaman yang sama -> mubazir di HP. */
+  .breadcrumb { display: none; }
+
+  .page-head { padding: 10px 12px 0; }
   .page-head h1 { font-size: 20px; }
   .info-banner, #inapp-tip { margin-left: 12px; margin-right: 12px; }
 
   .card { margin: 12px; }
 
-  /* Tabel dibuat rata tepi kartu (full-bleed) biar geser-nya kelihatan sengaja.
-     width 100% + margin 0 = pas dengan lebar kartu, jadi tepi tabel TIDAK
-     kepotong oleh overflow:hidden kartu (sebelumnya tabel meluber ~15px). */
-  .card > table.data {
+  /* ============ 4. Tabel jadi KARTU PER BARIS ============
+     Di HP, tabel lebar (10-11 kolom) lebih enak dibaca bertumpuk ke bawah
+     daripada digeser ke samping. Tiap <td> jadi 1 baris "Label: isi" pakai
+     data-label yang ada di HTML. Tampilan desktop tidak berubah. */
+  .table-scroll-hint { display: none; }
+
+  .card > table.data,
+  table.data {
+    display: block;
     width: 100%;
     max-width: 100%;
-    margin-left: 0;
-    margin-right: 0;
+    margin: 0;
+    padding: 0 12px 4px;
+    overflow: visible;
+    border: 0;
+    background: transparent;
   }
+
+  table.data thead { display: none; }
+  table.data tbody { display: block; }
+
+  table.data tr {
+    display: block;
+    background: #fff;
+    border: 1px solid var(--bs-border);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    margin-bottom: 12px;
+  }
+
+  /* matikan striping & hover gaya tabel */
+  table.data tbody tr:nth-child(odd) td,
+  table.data tbody tr:hover td { background: transparent; }
+
+  table.data tbody td {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 6px 12px;
+    border-bottom: 0;
+  }
+
+  /* Label kolom di ATAS isinya, dan isinya selebar kartu.
+     Sengaja tidak berdampingan: nilai panjang ("Cek Level Air dan Bangunan",
+     "03/10/2026 (Sabtu)") kepotong kalau cuma dapat separuh lebar. */
+  table.data tbody td[data-label] {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 7px 12px;
+  }
+
+  table.data tbody td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    max-width: none;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--bs-muted);
+  }
+
+  /* isi sel selebar kartu */
+  table.data tbody td > * { flex: 0 0 auto; width: 100%; min-width: 0; margin-top: 0; }
+  table.data tbody td > .hidden-file { flex: 0 0 0; }
+  table.data tbody td > button.btn-remove { flex: 0 0 auto; width: auto; }
+  table.data tbody td .preview-img { flex: 1 1 auto; min-width: 0; }
+
+  /* sel nomor jadi judul kartu: "Baris 1" */
+  table.data tbody td.num {
+    background: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border);
+    padding: 8px 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--bs-body);
+    min-width: 0;
+    width: 100%;
+  }
+  table.data tbody td.num::before {
+    content: "Baris";
+    flex: 0 0 auto;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bs-muted);
+  }
+
+  /* input di dalam kartu: biar tidak mepet */
+  table.data input,
+  table.data select { width: 100%; }
 
   /* target sentuh min 44px */
   button, .btn-primary, .btn-secondary, .btn-ghost { min-height: 44px; }

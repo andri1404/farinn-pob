@@ -158,12 +158,12 @@
         {% for i in range(1, 2) %}
         <tr>
           <td class="num">{{ i }}</td>
-          <td><select class="sel-tanggal" name="pagi-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
-          <td><div class="pilih-cust" data-nama="pagi-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
-          <td><div class="pilih-cust" data-nama="pagi-{{ i }}-jenis" data-jenis="jenis"></div></td>
-          <td><input type="text" class="inp-jam" name="pagi-{{ i }}-waktu" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
-          <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
-          <td>
+          <td data-label="Hari / Tanggal"><select class="sel-tanggal" name="pagi-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
+          <td data-label="Titik Lokasi"><div class="pilih-cust" data-nama="pagi-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
+          <td data-label="Jenis Pekerjaan"><div class="pilih-cust" data-nama="pagi-{{ i }}-jenis" data-jenis="jenis"></div></td>
+          <td data-label="Waktu"><input type="text" class="inp-jam" name="pagi-{{ i }}-waktu" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
+          <td data-label="TMA (cm)"><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
+          <td data-label="Status">
             <select name="pagi-{{ i }}-status">
                 <option value="">— pilih —</option>
                 <option>Normal</option>
@@ -173,7 +173,7 @@
                 <option>Awas</option>
               </select>
             </td>
-          <td>
+          <td data-label="Cuaca">
             <select name="pagi-{{ i }}-cuaca">
                 <option value="">— pilih —</option>
                 <option>Cerah</option>
@@ -182,12 +182,12 @@
                 <option>Hujan Lebat</option>
               </select>
             </td>
-          <td>
+          <td data-label="Foto TMA Pagi">
             <label class="btn-upload" for="pagi-{{ i }}-tma_pagi_foto">📁 Pilih Foto</label>
             <input type="file" id="pagi-{{ i }}-tma_pagi_foto" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" class="hidden-file" data-preview="prev-tma-{{ i }}">
             <div class="preview-img" id="prev-tma-{{ i }}"></div>
           </td>
-          <td>
+          <td data-label="Foto Selfi">
             <label class="btn-upload" for="pagi-{{ i }}-selfi">📁 Pilih Foto</label>
             <input type="file" id="pagi-{{ i }}-selfi" name="pagi-{{ i }}-selfi" accept="image/*" class="hidden-file" data-preview="prev-pagi-{{ i }}">
             <div class="preview-img" id="prev-pagi-{{ i }}"></div>
@@ -223,13 +223,13 @@
         {% for i in range(1, 2) %}
         <tr class="row-kerja">
           <td class="num">{{ i }}</td>
-          <td><select class="sel-tanggal" name="kerja-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
-          <td><div class="pilih-cust" data-nama="kerja-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
-          <td><div class="pilih-cust" data-nama="kerja-{{ i }}-jenis" data-jenis="jenis"></div></td>
-          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
-          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 08:00"></td>
-          <td><input type="text" name="kerja-{{ i }}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
-          <td>
+          <td data-label="Hari / Tanggal"><select class="sel-tanggal" name="kerja-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
+          <td data-label="Titik Lokasi"><div class="pilih-cust" data-nama="kerja-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
+          <td data-label="Jenis Pekerjaan"><div class="pilih-cust" data-nama="kerja-{{ i }}-jenis" data-jenis="jenis"></div></td>
+          <td data-label="Jam Mulai"><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
+          <td data-label="Jam Akhir"><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 08:00"></td>
+          <td data-label="Alat"><input type="text" name="kerja-{{ i }}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
+          <td data-label="Cuaca">
             <select name="kerja-{{ i }}-cuaca">
                 <option value="">— pilih —</option>
                 <option>Cerah</option>
@@ -238,17 +238,17 @@
                 <option>Hujan Lebat</option>
               </select>
             </td>
-          <td>
+          <td data-label="Foto 0% (sebelum)">
             <label class="btn-upload" for="kerja-{{ i }}-foto0">📁 Pilih Foto</label>
             <input type="file" id="kerja-{{ i }}-foto0" name="kerja-{{ i }}-foto0" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-0">
             <div class="preview-img multi" id="prev-k-{{ i }}-0"></div>
           </td>
-          <td>
+          <td data-label="Foto 50% (proses)">
             <label class="btn-upload" for="kerja-{{ i }}-foto05">📁 Pilih Foto</label>
             <input type="file" id="kerja-{{ i }}-foto05" name="kerja-{{ i }}-foto05" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-05">
             <div class="preview-img multi" id="prev-k-{{ i }}-05"></div>
           </td>
-          <td>
+          <td data-label="Foto 100% (selesai)">
             <label class="btn-upload" for="kerja-{{ i }}-foto1">📁 Pilih Foto</label>
             <input type="file" id="kerja-{{ i }}-foto1" name="kerja-{{ i }}-foto1" accept="image/*" multiple class="hidden-file" data-preview="prev-k-{{ i }}-1">
             <div class="preview-img multi" id="prev-k-{{ i }}-1"></div>
@@ -751,13 +751,13 @@ function buildKerjaRow(idx) {
   return `
     <tr class="row-kerja">
       <td class="num">${idx}</td>
-      <td><select class="sel-tanggal" name="kerja-${idx}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
-      <td><div class="pilih-cust" data-nama="kerja-${idx}-lokasi" data-jenis="lokasi"></div></td>
-      <td><div class="pilih-cust" data-nama="kerja-${idx}-jenis" data-jenis="jenis"></div></td>
-      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off"></td>
-      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off"></td>
-      <td><input type="text" name="kerja-${idx}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
-      <td>
+      <td data-label="Hari / Tanggal"><select class="sel-tanggal" name="kerja-${idx}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
+      <td data-label="Titik Lokasi"><div class="pilih-cust" data-nama="kerja-${idx}-lokasi" data-jenis="lokasi"></div></td>
+      <td data-label="Jenis Pekerjaan"><div class="pilih-cust" data-nama="kerja-${idx}-jenis" data-jenis="jenis"></div></td>
+      <td data-label="Jam Mulai"><input type="text" class="inp-jam" name="kerja-${idx}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off"></td>
+      <td data-label="Jam Akhir"><input type="text" class="inp-jam" name="kerja-${idx}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off"></td>
+      <td data-label="Alat"><input type="text" name="kerja-${idx}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
+      <td data-label="Cuaca">
         <select name="kerja-${idx}-cuaca">
           <option value="">— pilih —</option>
           <option>Cerah</option>
@@ -766,17 +766,17 @@ function buildKerjaRow(idx) {
           <option>Hujan Lebat</option>
         </select>
       </td>
-      <td>
+      <td data-label="Foto 0% (sebelum)">
         <label class="btn-upload" for="kerja-${idx}-foto0">📁 Pilih Foto</label>
         <input type="file" id="kerja-${idx}-foto0" name="kerja-${idx}-foto0" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-0">
         <div class="preview-img multi" id="prev-k-${idx}-0"></div>
       </td>
-      <td>
+      <td data-label="Foto 50% (proses)">
         <label class="btn-upload" for="kerja-${idx}-foto05">📁 Pilih Foto</label>
         <input type="file" id="kerja-${idx}-foto05" name="kerja-${idx}-foto05" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-05">
         <div class="preview-img multi" id="prev-k-${idx}-05"></div>
       </td>
-      <td>
+      <td data-label="Foto 100% (selesai)">
         <label class="btn-upload" for="kerja-${idx}-foto1">📁 Pilih Foto</label>
         <input type="file" id="kerja-${idx}-foto1" name="kerja-${idx}-foto1" accept="image/*" multiple class="hidden-file" data-preview="prev-k-${idx}-1">
         <div class="preview-img multi" id="prev-k-${idx}-1"></div>
