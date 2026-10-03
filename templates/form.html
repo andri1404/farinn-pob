@@ -489,18 +489,31 @@ async function injectSignatures(form) {
 }
 
 // --- Deteksi browser dalam aplikasi (Telegram / WhatsApp / FB / IG) ---
-// Di WebView itu, tombol download PDF kadang nggak jalan. Kasih arahan.
+// Di WebView itu, download PDF sering diblok total. Kasih jalan keluar:
+// tombol intent:// yang langsung buka Chrome (khusus Android).
 (function inAppTip() {
   const ua = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(ua);
   const inApp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|Telegram|Twitter|MicroMessenger/i.test(ua) ||
-                (/Android/i.test(ua) && /; wv\)/i.test(ua));
+                (isAndroid && /; wv\)/i.test(ua));
   if (!inApp) return;
   const el = document.getElementById('inapp-tip');
   if (!el) return;
   el.style.display = 'block';
-  el.innerHTML = '📱 Kamu buka di dalam aplikasi. Kalau PDF nggak mau kebuka / kedownload, ' +
-                 'tekan <b>⋯</b> atau <b>⋮</b> di kanan atas → pilih <b>“Buka di Chrome”</b> / ' +
-                 '<b>“Open in browser”</b>.';
+
+  let html = '📱 Kamu buka halaman ini <b>di dalam aplikasi</b> (bukan browser asli). ' +
+             'Kalau tombol Download nggak jalan, itu sebabnya — pindah ke Chrome dulu.';
+  if (isAndroid) {
+    // Skema intent:// = cara resmi Android buka app lain. Cuma jalan di Android.
+    const target = location.host + location.pathname;
+    const scheme = location.protocol.replace(':', '');
+    html += '<br><a class="btn-secondary btn-mini" style="display:inline-block;margin-top:7px;' +
+            'text-decoration:none" href="intent://' + target + '#Intent;scheme=' + scheme +
+            ';package=com.android.chrome;end">🌐 Buka di Chrome</a>';
+  } else {
+    html += '<br>Tekan <b>⋯</b> / <b>⋮</b> di kanan atas → <b>Open in browser</b>.';
+  }
+  el.innerHTML = html;
 })();
 
 // --- Simpan / unduh PDF ---
