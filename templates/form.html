@@ -201,7 +201,11 @@
   <div class="action-bar">
     <button type="button" class="btn-ghost" onclick="resetForm()">🗑 Reset Form</button>
     <button type="button" class="btn-secondary" onclick="submitPreview()">👁 Preview</button>
-    <button type="submit" class="btn-primary">📄 Generate PDF</button>
+    <button type="button" class="btn-primary" onclick="submitGenerate()" id="btn-generate">📄 Generate PDF</button>
+  </div>
+  <div id="upload-status" style="text-align:center;font-size:12px;padding:6px 10px;color:#555"></div>
+  <div id="upload-info" style="text-align:center;font-size:11px;padding:0 10px 8px;color:#888">
+    Foto otomatis dikompres sebelum dikirim (batas server 4,5 MB total).
   </div>
 
 </form>
@@ -332,13 +336,120 @@ function bindPreviewListeners() {
 
 bindPreviewListeners();
 
-function submitPreview() {
-  const f = document.getElementById('form-laporan');
-  f.action = '/preview';
-  f.target = '_self';
-  f.submit();
-  setTimeout(() => { f.action = '/generate'; f.target = '_blank'; }, 100);
+// ============ Kompres foto di browser (fix 413 FUNCTION_PAYLOAD_TOO_LARGE) ============
+// Vercel nolak request body > 4,5 MB. Foto HP bisa 3-8 MB per file, jadi harus
+// dikecilin dulu di browser sebelum dikirim. Tanpa ini: HTTP 413.
+const UPLOAD_BUDGET = 3.9 * 1024 * 1024;   // bytes (sisakan margin dari 4,5 MB)
+const MAX_SIDE = 1400;                     // px sisi terpanjang
+const JPEG_Q = 0.72;
+
+function setStatus(msg) {
+  const el = document.getElementById('upload-status');
+  if (el) el.textContent = msg || '';
 }
+
+function loadImageEl(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('gagal baca gambar')); };
+    img.src = url;
+  });
+}
+
+async function shrinkOne(file, maxSide, quality) {
+  // GIF dilewatin (canvas bikin animasinya hilang). Selain itu dikompres.
+  if (!file.type || !file.type.startsWith('image/') || file.type === 'image/gif') return file;
+  try {
+    const img = await loadImageEl(file);
+    let w = img.naturalWidth || img.width;
+    let h = img.naturalHeight || img.height;
+    if (!w || !h) return file;
+    const scale = Math.min(1, maxSide / Math.max(w, h));
+    w = Math.max(1, Math.round(w * scale));
+    h = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+    if (!blob) return file;
+    const base = (file.name || 'foto').replace(/\.[^.]+$/, '');
+    return new File([blob], base + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  } catch (e) {
+    return file;
+  }
+}
+
+async function compressAllPass(form, maxSide, quality, onTick) {
+  const inputs = Array.from(form.querySelectorAll('input[type="file"]'));
+  let total = 0, count = 0;
+  for (const input of inputs) {
+    const files = Array.from(input.files || []);
+    if (!files.length) continue;
+    const out = [];
+    for (const f of files) {
+      const shrunk = await shrinkOne(f, maxSide, quality);
+      out.push(shrunk);
+      total += shrunk.size;
+      count++;
+      if (onTick) onTick(count);
+    }
+    const dt = new DataTransfer();
+    out.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+  }
+  return { total, count };
+}
+
+async function prepareForm(form) {
+  let res = await compressAllPass(form, MAX_SIDE, JPEG_Q, n => setStatus(`⏳ Mengompres foto… (${n})`));
+  if (res.total > UPLOAD_BUDGET) {
+    setStatus('⏳ Masih besar, kompres ulang…');
+    res = await compressAllPass(form, 1000, 0.60, n => setStatus(`⏳ Mengompres ulang… (${n})`));
+  }
+  if (res.total > UPLOAD_BUDGET) {
+    setStatus('⏳ Kompres terakhir…');
+    res = await compressAllPass(form, 800, 0.50, n => setStatus(`⏳ Kompres terakhir… (${n})`));
+  }
+  return res;
+}
+
+async function submitFormTo(target, newTab) {
+  const f = document.getElementById('form-laporan');
+  const btnG = document.getElementById('btn-generate');
+  if (btnG) btnG.disabled = true;
+  try {
+    const { total, count } = await prepareForm(f);
+    if (count) {
+      const mb = (total / 1048576).toFixed(2);
+      if (total > UPLOAD_BUDGET) {
+        setStatus('');
+        alert('Total foto masih ' + mb + ' MB (batas server 4,5 MB).\n\n' +
+              'Kurangi jumlah foto, atau pilih foto yang resolusinya lebih kecil.');
+        return;
+      }
+      setStatus('📤 Mengirim… (' + count + ' foto, ' + mb + ' MB)');
+    } else {
+      setStatus('📤 Mengirim…');
+    }
+    f.action = target;
+    f.target = newTab ? '_blank' : '_self';
+    f.submit();
+    setTimeout(() => setStatus(''), 4000);
+  } catch (err) {
+    setStatus('❌ Gagal menyiapkan foto: ' + err.message);
+  } finally {
+    if (btnG) btnG.disabled = false;
+  }
+}
+
+function submitPreview() { submitFormTo('/preview', false); }
+function submitGenerate() { submitFormTo('/generate', true); }
+
 function resetForm() {
   if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
   document.getElementById('form-laporan').reset();
@@ -348,6 +459,7 @@ function resetForm() {
     l.textContent = l.dataset.originalText;
     l.classList.remove('has-files');
   });
+  setStatus('');
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
 }

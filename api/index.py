@@ -28,7 +28,7 @@ import base64
 from datetime import datetime, date
 from io import BytesIO
 
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, redirect
 from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -112,7 +112,9 @@ app = Flask(
     static_folder=os.path.join(PROJECT_DIR, 'static'),
     static_url_path='/static',
 )
-app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024  # 25 MB
+# Limit Vercel untuk request body = 4.5 MB. Disamakan di sini supaya Flask balas
+# 413 dengan halaman ramah, bukan error mentah. Foto dikompres di browser dulu.
+app.config['MAX_CONTENT_LENGTH'] = 4500000  # 4.5 MB (batas function Vercel)
 
 
 # ----------------- Helpers -----------------
@@ -768,15 +770,45 @@ def auto_fill_dates(pagi_rows, kerja_rows, base_date):
 
 # ----------------- Routes -----------------
 
+def _too_large_page():
+    """Halaman ramah buat HTTP 413 (payload kelebihan limit 4,5 MB Vercel)."""
+    return (
+        "<!doctype html><html lang='id'><head><meta charset='utf-8'>"
+        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>Foto terlalu besar</title></head>"
+        "<body style=\"font-family:system-ui,-apple-system,Segoe UI,sans-serif;"
+        "max-width:560px;margin:0 auto;padding:28px;line-height:1.6\">"
+        "<h2>📸 Kiriman terlalu besar</h2>"
+        "<p>Server menolak karena body request melebihi <b>4,5 MB</b> "
+        "(batas function Vercel). Biasanya karena foto kamera belum dikompres.</p>"
+        "<p><b>Solusi:</b></p><ol>"
+        "<li>Kurangi jumlah foto (mis. 4–6 foto saja per laporan).</li>"
+        "<li>Di HP, set kamera ke resolusi lebih kecil sebelum foto.</li>"
+        "<li>Buka ulang form lalu tekan tombol lagi — form versi baru "
+        "<b>otomatis mengompres foto</b> di browser sebelum dikirim.</li>"
+        "</ol><p><a href='/'>← Balik ke form laporan</a></p>"
+        "</body></html>"
+    ), 413
+
+
+@app.errorhandler(413)
+def handle_413(e):
+    return _too_large_page()
+
+
 @app.route('/')
 def index():
     today = datetime.now().strftime('%Y-%m-%d')
     return render_template('form.html', default_date=today, bulan_id=BULAN_ID)
 
 
-@app.route('/preview', methods=['POST'])
+@app.route('/preview', methods=['POST', 'GET'])
 def preview():
     """Show preview of what the PDF will look like (HTML mockup)."""
+    # GET ke /preview cuma bisa kejadian kalau user reload/back setelah submit
+    # (dulu: 'Method Not Allowed' 405). Sekarang dibalikin ke form.
+    if request.method == 'GET':
+        return redirect('/')
     meta = {
         'nama': request.form.get('nama', 'Muhammad Andri'),
         'petugas': request.form.get('petugas', ''),
@@ -793,8 +825,11 @@ def preview():
     return render_template('preview.html', meta=meta, pagi=pagi, kerja=kerja)
 
 
-@app.route('/generate', methods=['POST'])
+@app.route('/generate', methods=['POST', 'GET'])
 def generate():
+    # GET ke /generate (reload/back setelah submit) -> balikin ke form, bukan 405
+    if request.method == 'GET':
+        return redirect('/')
     meta = {
         'nama': request.form.get('nama', 'Muhammad Andri'),
         'petugas': request.form.get('petugas', ''),
