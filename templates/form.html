@@ -290,7 +290,10 @@ function syncTanggal() {
   mEl.innerHTML = mh;
 
   const nowY = new Date().getFullYear();
-  const years = Array.from(new Set([nowY - 1, nowY, nowY + 1, dy])).sort((a, b) => a - b);
+  const years = [];
+  for (let y = nowY - 3; y <= nowY + 1; y++) years.push(y);   // bisa mundur 3 tahun (backfill)
+  if (years.indexOf(dy) === -1) years.push(dy);
+  years.sort((a, b) => a - b);
   yEl.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
 
   mEl.value = dm;
