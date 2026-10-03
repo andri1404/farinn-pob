@@ -459,23 +459,16 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
                 selfi_cell = ImageStack(selfi_imgs[:3], max_w=4.0 * cm, max_h=0.9 * cm, layout='vertical', gap=2)
         else:
             selfi_cell = ''
-        # TMA Pagi cell: text + optional 1 foto
-        tma_pagi_text = str(row.get('tma_pagi', ''))
+        # TMA Pagi cell: FOTO SAJA (input teks dihapus — permintaan user 03/10).
+        # Cell 5.78cm x 3.2cm, padding 0 -> foto stretch penuh mengisi cell.
         tma_pagi_imgs = row.get('tma_pagi_imgs') or []
         if tma_pagi_imgs:
-            tma_pagi_parts = []
-            if tma_pagi_text:
-                tma_pagi_parts.append(Paragraph(tma_pagi_text, cell_style))
-            # Foto tunggal, full cell width - padding
-            tma_pagi_parts.append(
-                ImageStack(tma_pagi_imgs[:1], max_w=4.8 * cm, max_h=3.2 * cm, layout='vertical', gap=4)
-            )
-            from reportlab.platypus import KeepInFrame
-            tma_pagi_rendered = KeepInFrame(
-                5.0 * cm, 3.2 * cm, tma_pagi_parts, mode='shrink'
+            tma_pagi_rendered = ImageStack(
+                tma_pagi_imgs[:1], max_w=5.78 * cm, max_h=3.2 * cm,
+                layout='vertical', gap=0,
             )
         else:
-            tma_pagi_rendered = Paragraph(tma_pagi_text, cell_style) if tma_pagi_text else ''
+            tma_pagi_rendered = ''
         status_text = wrap_status(str(row.get('status', '')))
         t1_data.append([
             str(i),

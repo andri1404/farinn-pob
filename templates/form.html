@@ -71,7 +71,7 @@
           <th>TMA (cm)</th>
           <th>Status</th>
           <th>Cuaca</th>
-          <th>TMA Pagi<br><small>(teks &amp; foto)</small></th>
+          <th>Foto TMA Pagi<br><small>(foto saja)</small></th>
           <th>Foto Selfi<br><small>(bisa banyak)</small></th>
         </tr>
       </thead>
@@ -103,7 +103,6 @@
               </select>
             </td>
           <td>
-            <input type="text" name="pagi-{{ i }}-tma_pagi" placeholder="cm" style="margin-bottom:4px">
             <label class="btn-upload" for="pagi-{{ i }}-tma_pagi_foto">📁 Pilih Foto</label>
             <input type="file" id="pagi-{{ i }}-tma_pagi_foto" name="pagi-{{ i }}-tma_pagi_foto" accept="image/*" class="hidden-file" data-preview="prev-tma-{{ i }}">
             <div class="preview-img" id="prev-tma-{{ i }}"></div>

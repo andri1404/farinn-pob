@@ -53,7 +53,7 @@
       </tr>
       <tr>
         <th>Waktu</th><th>TMA</th><th>Status</th><th>Cuaca</th>
-        <th>TMA Pagi</th><th>Selfi</th>
+        <th>Foto TMA Pagi</th><th>Selfi</th>
       </tr>
     </thead>
     <tbody>
@@ -67,8 +67,8 @@
         <td>{{ r.tma }}</td>
         <td>{{ r.status }}</td>
         <td>{{ r.cuaca }}</td>
-        <td>{{ r.tma_pagi }}</td>
-        <td>{% if r.selfi_img %}📷{% endif %}</td>
+        <td>{% if r.tma_pagi_imgs %}📷{% endif %}</td>
+        <td>{% if r.selfi_imgs %}📷{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
