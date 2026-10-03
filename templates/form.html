@@ -151,15 +151,10 @@
         {% for i in range(1, 2) %}
         <tr>
           <td class="num">{{ i }}</td>
-          <td><input type="text" class="inp-tanggal" name="pagi-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
+          <td><select class="sel-tanggal" name="pagi-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
           <td><div class="pilih-cust" data-nama="pagi-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
           <td><div class="pilih-cust" data-nama="pagi-{{ i }}-jenis" data-jenis="jenis"></div></td>
-          <td>
-            <div class="time-pick">
-              <select class="tp-h" aria-label="Jam"></select><span class="tp-sep">:</span><select class="tp-m" aria-label="Menit"></select>
-              <input type="hidden" class="tp-val" name="pagi-{{ i }}-waktu">
-            </div>
-          </td>
+          <td><input type="text" class="inp-jam" name="pagi-{{ i }}-waktu" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
           <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
           <td>
             <select name="pagi-{{ i }}-status">
@@ -221,21 +216,11 @@
         {% for i in range(1, 2) %}
         <tr class="row-kerja">
           <td class="num">{{ i }}</td>
-          <td><input type="text" class="inp-tanggal" name="kerja-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
+          <td><select class="sel-tanggal" name="kerja-{{ i }}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
           <td><div class="pilih-cust" data-nama="kerja-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
           <td><div class="pilih-cust" data-nama="kerja-{{ i }}-jenis" data-jenis="jenis"></div></td>
-          <td>
-            <div class="time-pick">
-              <select class="tp-h" aria-label="Jam"></select><span class="tp-sep">:</span><select class="tp-m" aria-label="Menit"></select>
-              <input type="hidden" class="tp-val" name="kerja-{{ i }}-jam_mulai">
-            </div>
-          </td>
-          <td>
-            <div class="time-pick">
-              <select class="tp-h" aria-label="Jam"></select><span class="tp-sep">:</span><select class="tp-m" aria-label="Menit"></select>
-              <input type="hidden" class="tp-val" name="kerja-{{ i }}-jam_akhir">
-            </div>
-          </td>
+          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
+          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 08:00"></td>
           <td><input type="text" name="kerja-{{ i }}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
           <td>
             <select name="kerja-{{ i }}-cuaca">
@@ -370,6 +355,47 @@ function refreshDays(keep) {
   dEl.value = Math.min(cur, max);
 }
 
+function teksTanggal() {
+  const d = +document.getElementById('tgl_d').value;
+  const m = +document.getElementById('tgl_m').value;
+  const y = +document.getElementById('tgl_y').value;
+  return `${pad2(d)}/${pad2(m)}/${y}`;
+}
+
+function opsiTanggalBulan(m, y) {
+  const max = daysInMonth(m, y);
+  let html = '';
+  for (let d = 1; d <= max; d++) {
+    const dt = new Date(y, m - 1, d);
+    const val = `${pad2(d)}/${pad2(m)}/${y}`;
+    html += `<option value="${val}">${val} (${HARI_ID_JS[dt.getDay()]})</option>`;
+  }
+  return html;
+}
+
+// Isi dropdown Hari/Tanggal di tabel. Opsinya dibangun ulang hanya kalau
+// bulan/tahun berubah, biar pilihan manual di baris lain tidak ke-reset.
+function isiTanggalPilih(root) {
+  const scope = root || document;
+  const mEl = document.getElementById('tgl_m');
+  const yEl = document.getElementById('tgl_y');
+  if (!mEl || !yEl) return;
+  const m = +mEl.value, y = +yEl.value;
+  const kunci = m + '/' + y;
+  const txt = teksTanggal();
+  scope.querySelectorAll('select.sel-tanggal').forEach(sel => {
+    if (sel.dataset.bulan !== kunci) {
+      sel.innerHTML = opsiTanggalBulan(m, y);
+      sel.dataset.bulan = kunci;
+    }
+    if (sel.dataset.auto !== '0') {
+      sel.value = txt;
+    } else if (!Array.prototype.some.call(sel.options, o => o.value === sel.value)) {
+      sel.value = txt;   // pilihannya di luar bulan ini -> balik ke tanggal laporan
+    }
+  });
+}
+
 function syncTanggal() {
   const dEl = document.getElementById('tgl_d');
   const mEl = document.getElementById('tgl_m');
@@ -383,10 +409,9 @@ function syncTanggal() {
   const dt = new Date(y, m - 1, d);
   const txt = `${pad2(d)}/${pad2(m)}/${y}`;
   if (badge) badge.textContent = HARI_ID_JS[dt.getDay()] + ', ' + txt;
-  // Baris yang belum diedit manual ikut tanggal ini (yang sudah diedit dibiarkan).
-  document.querySelectorAll('input.inp-tanggal').forEach(el => {
-    if (el.dataset.auto !== '0') el.value = txt;
-  });
+  // Kolom Hari/Tanggal di tabel pakai dropdown; yang belum diubah manual ikut
+  // tanggal ini, yang sudah dipilih sendiri dibiarkan.
+  isiTanggalPilih();
 }
 
 (function initDatePicker() {
@@ -421,74 +446,22 @@ function syncTanggal() {
   syncTanggal();
 })();
 
-// --- Jam: dipilih dari dropdown (jam + menit), bukan diketik ---
-// Picker native <input type="time"> sering nggak jalan di WebView HP, dan
-// ngetik "0730" juga gampang salah. Jadi pakai 2 dropdown.
-// Nilai akhir ("07:30") dikirim lewat <input type="hidden" class="tp-val">
-// yang namanya sama seperti field aslinya -> server tidak perlu diubah.
-const JAM_OPTS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'));
-const MENIT_OPTS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, '0'));
-
-function timePickHTML(name) {
-  return '<div class="time-pick">' +
-    '<select class="tp-h" aria-label="Jam"><option value="">Jam</option>' +
-      JAM_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('') + '</select>' +
-    '<span class="tp-sep">:</span>' +
-    '<select class="tp-m" aria-label="Menit"><option value="">Mnt</option>' +
-      MENIT_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('') + '</select>' +
-    '<input type="hidden" class="tp-val" name="' + name + '">' +
-  '</div>';
+// --- Jam: diketik + keyboard angka (bukan dropdown, bukan <input type="time">) ---
+// Picker native <input type="time"> nggak jalan di sebagian WebView HP.
+// Dropdown Jam:Menit juga ternyata lebih ribet daripada ngetik -> balik ke teks,
+// tapi tetap di-mask otomatis: user ketik "0730" -> jadi "07:30".
+function maskJam(el) {
+  const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 4);
+  el.value = v.length >= 3 ? v.slice(0, 2) + ':' + v.slice(2) : v;
 }
 
-// Isi opsi untuk select yang masih kosong (yang ditulis di HTML template).
-function isiTimePickers(root) {
-  const scope = root || document;
-  scope.querySelectorAll('.time-pick').forEach(wrap => {
-    const h = wrap.querySelector('.tp-h');
-    const m = wrap.querySelector('.tp-m');
-    if (h && !h.options.length) {
-      h.innerHTML = '<option value="">Jam</option>' +
-        JAM_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('');
-    }
-    if (m && !m.options.length) {
-      m.innerHTML = '<option value="">Mnt</option>' +
-        MENIT_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('');
-    }
-    syncTimePick(wrap);
-  });
-}
-
-function syncTimePick(wrap) {
-  if (!wrap) return;
-  const h = wrap.querySelector('.tp-h');
-  const m = wrap.querySelector('.tp-m');
-  const val = wrap.querySelector('.tp-val');
-  if (!h || !m || !val) return;
-  const hv = h.value, mv = m.value;
-  // dua-duanya kosong -> kirim kosong. salah satu diisi -> yang kosong jadi 00.
-  val.value = (hv === '' && mv === '') ? '' : (hv || '00') + ':' + (mv || '00');
-}
-
-document.addEventListener('change', e => {
-  const t = e.target;
-  if (t && t.classList && (t.classList.contains('tp-h') || t.classList.contains('tp-m'))) {
-    syncTimePick(t.closest('.time-pick'));
-  }
-});
-
-// Isi ulang dari nilai teks "07:30" (dipakai saat baris dikloning/reset).
-function setTimePick(wrap, nilai) {
-  if (!wrap) return;
-  const h = wrap.querySelector('.tp-h');
-  const m = wrap.querySelector('.tp-m');
-  const mm = (nilai || '').match(/^(\d{1,2})[:.](\d{2})$/);
-  if (h) h.value = mm ? pad2(parseInt(mm[1], 10)) : '';
-  if (m) {
-    const menit = mm ? String(parseInt(mm[2], 10)).padStart(2, '0') : '';
-    // bulatkan ke pilihan terdekat (menit cuma kelipatan 5)
-    m.value = MENIT_OPTS.indexOf(menit) >= 0 ? menit : '';
-  }
-  syncTimePick(wrap);
+function normalizeJam(el) {
+  const m = (el.value || '').trim().match(/^(\d{1,2})\s*[:.,]?\s*(\d{0,2})$/);
+  if (!m) return;
+  const h = parseInt(m[1] || '0', 10);
+  const mi = parseInt(m[2] || '0', 10);
+  if (isNaN(h) || isNaN(mi) || h > 23 || mi > 59) return;
+  el.value = pad2(h) + ':' + pad2(mi);
 }
 
 // --- Lokasi & Jenis Pekerjaan: dropdown BENERAN + opsi "Lainnya" ---
@@ -497,7 +470,8 @@ function setTimePick(wrap, nilai) {
 // Nilai akhir dikirim lewat <input type=hidden class="pc-val"> dengan NAME yang
 // sama seperti field aslinya -> server tidak perlu diubah.
 const LOKASI_PILIHAN = ['BGT. 8', 'BGT. 9', 'BGT. 10', 'BGT. 11', 'BGT. 12'];
-const JENIS_PILIHAN = ['Pemeriksaan rutin', 'Pembersihan sampah', 'Pembersihan rumput',
+const JENIS_PILIHAN = ['Cek Level Air', 'Bangunan',
+                       'Pemeriksaan rutin', 'Pembersihan sampah', 'Pembersihan rumput',
                        'Pengukuran TMA', 'Pelumasan pintu', 'Perbaikan pintu',
                        'Pengecatan', 'Pemangkasan pohon'];
 const CUSTOM = '__custom__';
@@ -590,11 +564,22 @@ document.addEventListener('input', e => {
 });
 
 // Kalau user ngetik sendiri di kolom Hari/Tanggal, tandai biar nggak ditimpa otomatis.
+// Kolom jam di-mask sambil diketik: "0730" -> "07:30".
 document.addEventListener('input', e => {
   const t = e.target;
   if (!t || !t.classList) return;
-  if (t.classList.contains('inp-tanggal')) t.dataset.auto = '0';
+  if (t.classList.contains('inp-jam')) maskJam(t);
 });
+// Pilih tanggal beda buat 1 baris -> tandai biar nggak ditimpa tanggal laporan.
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('sel-tanggal')) t.dataset.auto = '0';
+});
+// blur nggak nge-bubble, jadi pakai capture -> rapikan "7.3" jadi "07:30"
+document.addEventListener('blur', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('inp-jam')) normalizeJam(t);
+}, true);
 
 // --- TTD: gambar langsung di layar (canvas + jari/stylus/mouse) ---
 // Bitmap canvas-nya TETAP (640x200). CSS yang menskalakan tampilannya, jadi
@@ -735,11 +720,11 @@ function buildKerjaRow(idx) {
   return `
     <tr class="row-kerja">
       <td class="num">${idx}</td>
-      <td><input type="text" class="inp-tanggal" name="kerja-${idx}-hari_tanggal" placeholder="03/10/2026"></td>
+      <td><select class="sel-tanggal" name="kerja-${idx}-hari_tanggal" aria-label="Hari/Tanggal"></select></td>
       <td><div class="pilih-cust" data-nama="kerja-${idx}-lokasi" data-jenis="lokasi"></div></td>
       <td><div class="pilih-cust" data-nama="kerja-${idx}-jenis" data-jenis="jenis"></div></td>
-      <td>${timePickHTML('kerja-' + idx + '-jam_mulai')}</td>
-      <td>${timePickHTML('kerja-' + idx + '-jam_akhir')}</td>
+      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off"></td>
+      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off"></td>
       <td><input type="text" name="kerja-${idx}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
       <td>
         <select name="kerja-${idx}-cuaca">
@@ -778,8 +763,8 @@ document.getElementById('btn-add-kerja').addEventListener('click', () => {
   kerjaRowCount++;
   const tbody = document.getElementById('tbody-kerja');
   tbody.insertAdjacentHTML('beforeend', buildKerjaRow(kerjaRowCount));
-  isiTimePickers(tbody);
   isiPilihCust(tbody);
+  isiTanggalPilih(tbody);
   bindPreviewListeners();
   syncTanggal();   // isi kolom Hari/Tanggal baris baru
 });
@@ -1156,20 +1141,18 @@ function pulihkanDraf(d) {
     if (el && el.type !== 'file') el.value = val;
   });
 
-  // dropdown jam dipulihkan dari nilai teks "07:30"
-  document.querySelectorAll('.time-pick').forEach(w => {
-    const v = w.querySelector('.tp-val');
-    setTimePick(w, v ? v.value : '');
-  });
-
   // dropdown Lokasi/Pekerjaan dipulihkan dari nilai tersembunyinya
   document.querySelectorAll('.pilih-cust').forEach(w => {
     const v = w.querySelector('.pc-val');
     setPilihCust(w, v ? v.value : '');
   });
 
-  isiTimePickers();
   isiPilihCust();
+  // Tandai baris yang tanggalnya beda dari tanggal laporan supaya tidak ditimpa
+  const txtLapor = teksTanggal();
+  document.querySelectorAll('select.sel-tanggal').forEach(sel => {
+    if (sel.value && sel.value !== txtLapor) sel.dataset.auto = '0';
+  });
   syncTanggal();
   return true;
 }
@@ -1219,7 +1202,6 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('pagehide', () => { clearTimeout(drafTimer); simpanDraf(); });
 
 // Siapkan dropdown jam + dropdown Lokasi/Pekerjaan + opsi alat.
-isiTimePickers();
 isiPilihCust();
 
 // Siapkan pad tanda tangan + samakan label namanya dengan field identitas.
@@ -1246,7 +1228,7 @@ function resetForm() {
     l.classList.remove('has-files');
   });
   // Balikin kolom Hari/Tanggal ke mode otomatis + isi ulang dari dropdown
-  document.querySelectorAll('input.inp-tanggal').forEach(el => { delete el.dataset.auto; });
+  document.querySelectorAll('select.sel-tanggal').forEach(el => { delete el.dataset.auto; });
   const parts = (DEFAULT_DATE || '').split('-').map(Number);
   const mEl = document.getElementById('tgl_m'), yEl = document.getElementById('tgl_y');
   if (mEl && yEl && parts.length === 3) {
@@ -1266,7 +1248,6 @@ function resetForm() {
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
   // Kosongkan semua dropdown jam + Lokasi/Pekerjaan setelah reset
-  document.querySelectorAll('.time-pick').forEach(w => setTimePick(w, ''));
   document.querySelectorAll('.pilih-cust').forEach(w => setPilihCust(w, ''));
   // Reset berarti mulai baru -> draf tersimpan ikut dibuang
   try { localStorage.removeItem(DRAF_KEY); } catch (e) {}

@@ -523,31 +523,8 @@ table.data select {
   font-size: 16px;
 }
 
-input.inp-tanggal { min-width: 106px; }
-
-/* --- Pemilih jam: 2 dropdown (Jam : Menit) --- */
-.time-pick { display: flex; align-items: center; gap: 4px; }
-
-.time-pick select {
-  margin-top: 0;
-  width: auto;
-  min-width: 0;
-  flex: 0 0 auto;
-  padding: 6px 24px 6px 8px;
-  background-position: right 5px center;
-  text-align: center;
-}
-
-.time-pick .tp-h { width: 68px; }
-.time-pick .tp-m { width: 76px; }
-
-.time-pick .tp-sep {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--bs-body);
-  line-height: 1;
-  margin: 0 1px;
-}
+select.sel-tanggal { min-width: 158px; }
+input.inp-jam { min-width: 92px; letter-spacing: .02em; }
 
 /* --- Lokasi / Jenis Pekerjaan: dropdown + opsi "Lainnya" --- */
 .pilih-cust { display: flex; flex-direction: column; gap: 4px; min-width: 132px; }
