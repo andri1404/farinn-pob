@@ -1183,9 +1183,14 @@ function lanjutkanDraf() {
 }
 
 function buangDraf() {
-  document.getElementById('draf-banner').style.display = 'none';
-  resetForm();                       // resetForm() sekaligus menghapus draf
-  tulisStatusDraf('🗑 Draf dihapus — form dikosongkan.');
+  const ok = resetForm();           // resetForm() sekaligus menghapus draf
+  if (ok) {
+    document.getElementById('draf-banner').style.display = 'none';
+    tulisStatusDraf('🗑 Draf dihapus — form dikosongkan.');
+  } else {
+    // user batalin konfirmasi -> draf masih ada, banner tetap tampil
+    tulisStatusDraf('Dibatalkan — draf masih tersimpan.');
+  }
 }
 
 // tampilkan banner kalau ada draf yang isinya berarti
@@ -1232,7 +1237,7 @@ initAllPads();
 })();
 
 function resetForm() {
-  if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
+  if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return false;
   document.getElementById('form-laporan').reset();
   document.querySelectorAll('.preview-img').forEach(el => el.innerHTML = '');
   // Reset all btn-upload labels to original text
@@ -1266,6 +1271,7 @@ function resetForm() {
   // Reset berarti mulai baru -> draf tersimpan ikut dibuang
   try { localStorage.removeItem(DRAF_KEY); } catch (e) {}
   tulisStatusDraf('');
+  return true;
 }
 </script>
 
