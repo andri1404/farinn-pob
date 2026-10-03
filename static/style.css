@@ -348,3 +348,24 @@ footer {
   .card { padding: 1rem 1.25rem; }
   .btn-primary, .btn-secondary, .btn-ghost { width: 100%; justify-content: center; }
 }
+
+/* --- Dropdown Hari/Bulan/Tahun (pengganti <input type="date">) --- */
+/* Kalender native nggak jalan di sebagian WebView HP, jadi pakai dropdown. */
+.date-dropdowns {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.date-dropdowns select { flex: 1 1 0; min-width: 88px; }
+.hari-badge {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: #1e3a8a;
+  background: #e8efff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.hint-inline { display: block; margin-top: 4px; color: #888; font-size: 0.72rem; line-height: 1.35; }
+input.inp-tanggal { min-width: 100px; }

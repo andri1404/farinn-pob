@@ -802,27 +802,65 @@ def index():
     return render_template('form.html', default_date=today, bulan_id=BULAN_ID)
 
 
-@app.route('/preview', methods=['POST', 'GET'])
-def preview():
-    """Show preview of what the PDF will look like (HTML mockup)."""
-    # GET ke /preview cuma bisa kejadian kalau user reload/back setelah submit
-    # (dulu: 'Method Not Allowed' 405). Sekarang dibalikin ke form.
-    if request.method == 'GET':
-        return redirect('/')
-    meta = {
+def _form_date():
+    """Tanggal laporan dari dropdown Hari/Bulan/Tahun (tgl_d/tgl_m/tgl_y).
+    Fallback ke field ISO 'tanggal' kalau dropdown nggak dikirim (form lama),
+    lalu ke hari ini. Selalu divalidasi (nangkep 31 Februari dll)."""
+    d = (request.form.get('tgl_d') or '').strip()
+    m = (request.form.get('tgl_m') or '').strip()
+    y = (request.form.get('tgl_y') or '').strip()
+    cand = None
+    if d and m and y:
+        try:
+            cand = '%04d-%02d-%02d' % (int(y), int(m), int(d))
+        except (TypeError, ValueError):
+            cand = None
+    if not cand:
+        cand = (request.form.get('tanggal') or '').strip()
+    try:
+        datetime.strptime(cand, '%Y-%m-%d')
+    except (TypeError, ValueError):
+        cand = datetime.now().strftime('%Y-%m-%d')
+    return cand
+
+
+def _form_meta(base_date):
+    return {
         'nama': request.form.get('nama', 'Muhammad Andri'),
         'petugas': request.form.get('petugas', ''),
         'petugas_label': request.form.get('petugas_label', 'Petugas'),
         'pengamat': request.form.get('pengamat', 'AKHMAD MUHAZIR'),
         'pengamat_nip': request.form.get('pengamat_nip', ''),
         'petugas_nip': request.form.get('petugas_nip', ''),
-        'hari_tanggal': hari_id(request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d'))),
+        'hari_tanggal': hari_id(base_date),
         'tanggal_cetak': tgl_indonesia(datetime.now().strftime('%Y-%m-%d')),
     }
+
+
+def _render_pdf(base_date):
+    """Bangun PDF laporan dari request saat ini -> BytesIO."""
+    meta = _form_meta(base_date)
     pagi = parse_form_pagi()
     kerja = parse_form_kerja()
-    auto_fill_dates(pagi, kerja, request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d')))
-    return render_template('preview.html', meta=meta, pagi=pagi, kerja=kerja)
+    auto_fill_dates(pagi, kerja, base_date)
+    sig_pengamat = decode_image(request.files.get('signature_pengamat'))
+    sig_petugas = decode_image(request.files.get('signature_petugas'))
+    return build_pdf(meta, pagi, kerja, sig_pengamat, sig_petugas)
+
+
+@app.route('/preview', methods=['POST', 'GET'])
+def preview():
+    """Preview = PDF yang SAMA PERSIS dengan hasil Generate.
+
+    Dulu preview.html cuma mockup HTML -> layoutnya beda dari PDF asli.
+    Sekarang preview mengembalikan PDF asli (inline) lewat builder yang sama,
+    jadi mustahil beda.
+    """
+    if request.method == 'GET':
+        return redirect('/')
+    pdf = _render_pdf(_form_date())
+    return send_file(pdf, mimetype='application/pdf', as_attachment=False,
+                     download_name='Preview-Laporan.pdf')
 
 
 @app.route('/generate', methods=['POST', 'GET'])
@@ -830,25 +868,9 @@ def generate():
     # GET ke /generate (reload/back setelah submit) -> balikin ke form, bukan 405
     if request.method == 'GET':
         return redirect('/')
-    meta = {
-        'nama': request.form.get('nama', 'Muhammad Andri'),
-        'petugas': request.form.get('petugas', ''),
-        'petugas_label': request.form.get('petugas_label', 'Petugas'),
-        'pengamat': request.form.get('pengamat', 'AKHMAD MUHAZIR'),
-        'pengamat_nip': request.form.get('pengamat_nip', ''),
-        'petugas_nip': request.form.get('petugas_nip', ''),
-        'hari_tanggal': hari_id(request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d'))),
-        'tanggal_cetak': tgl_indonesia(datetime.now().strftime('%Y-%m-%d')),
-    }
-    pagi = parse_form_pagi()
-    kerja = parse_form_kerja()
-    auto_fill_dates(pagi, kerja, request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d')))
-
-    sig_pengamat = decode_image(request.files.get('signature_pengamat'))
-    sig_petugas = decode_image(request.files.get('signature_petugas'))
-
-    pdf = build_pdf(meta, pagi, kerja, sig_pengamat, sig_petugas)
-    fname = "Laporan-POB-" + request.form.get('tanggal', datetime.now().strftime('%Y-%m-%d')) + ".pdf"
+    base = _form_date()
+    pdf = _render_pdf(base)
+    fname = "Laporan-POB-" + base + ".pdf"
     return send_file(pdf, mimetype='application/pdf', as_attachment=True,
                      download_name=fname)
 

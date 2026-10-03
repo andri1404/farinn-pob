@@ -24,9 +24,19 @@
     <h2>1. Identitas Petugas &amp; Pengamat</h2>
     <p class="hint">Tanggal, nama, NIP, dan label identitas untuk laporan ini.</p>
     <div class="grid-2">
-      <label>
-        Tanggal Laporan
-        <input type="date" name="tanggal" value="{{ default_date }}" required>
+      <label class="full">
+        Hari / Tanggal Laporan
+        <div class="date-dropdowns">
+          <select name="tgl_d" id="tgl_d" required aria-label="Tanggal"></select>
+          <select name="tgl_m" id="tgl_m" required aria-label="Bulan"></select>
+          <select name="tgl_y" id="tgl_y" required aria-label="Tahun"></select>
+          <span class="hari-badge" id="hari-badge">—</span>
+        </div>
+        <small class="hint-inline">
+          Hari otomatis ikut tanggal. Dipakai dropdown (bukan kalender) biar tetap
+          bisa diganti di browser HP / WebView Telegram.
+        </small>
+        <input type="hidden" name="tanggal" id="tanggal_iso" value="{{ default_date }}">
       </label>
       <label>
         Nama Petugas (yang buat laporan)
@@ -65,6 +75,7 @@
       <thead>
         <tr>
           <th>#</th>
+          <th>Hari /<br>Tanggal</th>
           <th>Lokasi</th>
           <th>Jenis Pekerjaan</th>
           <th>Waktu</th>
@@ -79,6 +90,7 @@
         {% for i in range(1, 2) %}
         <tr>
           <td class="num">{{ i }}</td>
+          <td><input type="text" class="inp-tanggal" name="pagi-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
           <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan rutin"></td>
           <td><input type="time" name="pagi-{{ i }}-waktu"></td>
@@ -126,6 +138,7 @@
       <thead>
         <tr>
           <th>#</th>
+          <th>Hari /<br>Tanggal</th>
           <th>Lokasi</th>
           <th>Jenis Pekerjaan</th>
           <th>Jam Mulai</th>
@@ -141,6 +154,7 @@
         {% for i in range(1, 2) %}
         <tr class="row-kerja">
           <td class="num">{{ i }}</td>
+          <td><input type="text" class="inp-tanggal" name="kerja-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
           <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="kerja-{{ i }}-jenis" placeholder="Pembersihan"></td>
           <td><input type="time" name="kerja-{{ i }}-jam_mulai"></td>
@@ -219,10 +233,88 @@
 let kerjaRowCount = 1;
 const MAX_KERJA_ROWS = 20;
 
+// --- Hari/Tanggal: dropdown tanggal + kolom "Hari/Tanggal" yang bisa diketik ---
+// Dipakai dropdown, bukan <input type="date">, karena kalender native nggak jalan
+// di sebagian WebView HP (mis. browser dalam Telegram) -> user gak bisa ganti tanggal.
+const HARI_ID_JS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+const BULAN_ID_JS = {{ bulan_id | tojson }};
+const DEFAULT_DATE = {{ default_date | tojson }};
+
+function daysInMonth(m, y) { return new Date(y, m, 0).getDate(); }
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function refreshDays(keep) {
+  const dEl = document.getElementById('tgl_d');
+  if (!dEl) return;
+  const m = +document.getElementById('tgl_m').value;
+  const y = +document.getElementById('tgl_y').value;
+  const max = daysInMonth(m, y);
+  const cur = (keep != null && keep !== '') ? +keep : (+dEl.value || 1);
+  let html = '';
+  for (let i = 1; i <= max; i++) html += `<option value="${i}">${i}</option>`;
+  dEl.innerHTML = html;
+  dEl.value = Math.min(cur, max);
+}
+
+function syncTanggal() {
+  const dEl = document.getElementById('tgl_d');
+  const mEl = document.getElementById('tgl_m');
+  const yEl = document.getElementById('tgl_y');
+  if (!dEl || !mEl || !yEl) return;
+  const d = +dEl.value, m = +mEl.value, y = +yEl.value;
+  const iso = `${y}-${pad2(m)}-${pad2(d)}`;
+  const isoEl = document.getElementById('tanggal_iso');
+  if (isoEl) isoEl.value = iso;
+  const badge = document.getElementById('hari-badge');
+  const dt = new Date(y, m - 1, d);
+  const txt = `${pad2(d)}/${pad2(m)}/${y}`;
+  if (badge) badge.textContent = HARI_ID_JS[dt.getDay()] + ', ' + txt;
+  // Baris yang belum diedit manual ikut tanggal ini (yang sudah diedit dibiarkan).
+  document.querySelectorAll('input.inp-tanggal').forEach(el => {
+    if (el.dataset.auto !== '0') el.value = txt;
+  });
+}
+
+(function initDatePicker() {
+  const dEl = document.getElementById('tgl_d');
+  const mEl = document.getElementById('tgl_m');
+  const yEl = document.getElementById('tgl_y');
+  if (!dEl || !mEl || !yEl) return;
+  const parts = (DEFAULT_DATE || '').split('-').map(Number);
+  const dy = parts[0] || new Date().getFullYear();
+  const dm = parts[1] || (new Date().getMonth() + 1);
+  const dd = parts[2] || new Date().getDate();
+
+  let mh = '';
+  BULAN_ID_JS.forEach((nama, i) => { mh += `<option value="${i + 1}">${i + 1} — ${nama}</option>`; });
+  mEl.innerHTML = mh;
+
+  const nowY = new Date().getFullYear();
+  const years = Array.from(new Set([nowY - 1, nowY, nowY + 1, dy])).sort((a, b) => a - b);
+  yEl.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+  mEl.value = dm;
+  yEl.value = dy;
+  refreshDays(dd);
+
+  [dEl, mEl, yEl].forEach(el => el.addEventListener('change', () => {
+    if (el === mEl || el === yEl) refreshDays();
+    syncTanggal();
+  }));
+  syncTanggal();
+})();
+
+// Kalau user ngetik sendiri di kolom Hari/Tanggal, tandai biar nggak ditimpa otomatis.
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('inp-tanggal')) t.dataset.auto = '0';
+});
+
 function buildKerjaRow(idx) {
   return `
     <tr class="row-kerja">
       <td class="num">${idx}</td>
+      <td><input type="text" class="inp-tanggal" name="kerja-${idx}-hari_tanggal" placeholder="03/10/2026"></td>
       <td><input type="text" name="kerja-${idx}-lokasi" placeholder="Contoh: BGT. 8"></td>
       <td><input type="text" name="kerja-${idx}-jenis" placeholder="Pembersihan"></td>
       <td><input type="time" name="kerja-${idx}-jam_mulai"></td>
@@ -266,6 +358,7 @@ document.getElementById('btn-add-kerja').addEventListener('click', () => {
   const tbody = document.getElementById('tbody-kerja');
   tbody.insertAdjacentHTML('beforeend', buildKerjaRow(kerjaRowCount));
   bindPreviewListeners();
+  syncTanggal();   // isi kolom Hari/Tanggal baris baru
 });
 
 function removeKerjaRow(btn) {
@@ -469,6 +562,16 @@ function resetForm() {
     l.textContent = l.dataset.originalText;
     l.classList.remove('has-files');
   });
+  // Balikin kolom Hari/Tanggal ke mode otomatis + isi ulang dari dropdown
+  document.querySelectorAll('input.inp-tanggal').forEach(el => { delete el.dataset.auto; });
+  const parts = (DEFAULT_DATE || '').split('-').map(Number);
+  const mEl = document.getElementById('tgl_m'), yEl = document.getElementById('tgl_y');
+  if (mEl && yEl && parts.length === 3) {
+    mEl.value = parts[1]; yEl.value = parts[2];
+    refreshDays(parts[2] ? parts[2] : 1);
+    document.getElementById('tgl_d').value = parts[2];
+  }
+  syncTanggal();
   setStatus('');
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
