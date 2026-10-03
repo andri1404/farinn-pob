@@ -151,8 +151,17 @@ def _process_image(raw_bytes, max_px=900):
     pil = ImageOps.exif_transpose(pil)
     # Resize (preserves aspect ratio)
     pil.thumbnail((max_px, max_px))
-    # Convert mode
-    if pil.mode in ('RGBA', 'LA', 'P'):
+    # Convert mode.
+    # PENTING: PNG transparan (mis. tanda tangan hasil gambar di canvas web)
+    # HARUS ditempel ke background PUTIH dulu. Kalau langsung convert('RGB'),
+    # area transparan jadi HITAM -> tanda tangan muncul sebagai kotak hitam.
+    if pil.mode in ('RGBA', 'LA', 'P', 'PA'):
+        pil = pil.convert('RGBA')
+    if pil.mode == 'RGBA':
+        bg = PILImage.new('RGB', pil.size, (255, 255, 255))
+        bg.paste(pil, mask=pil.split()[-1])   # pakai channel alpha sebagai mask
+        pil = bg
+    elif pil.mode != 'RGB':
         pil = pil.convert('RGB')
     orig_w, orig_h = pil.size
     buf = BytesIO()
