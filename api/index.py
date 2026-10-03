@@ -249,8 +249,10 @@ def decode_b64(b64str, max_px=900, target_w=None, target_h=None):
 # Layout A4 landscape (841.89 x 595.28 pts = 29.7 x 21.0 cm)
 # Sumber: file .xls asli -> BIFF SETUP record paper_size=9 (A4), flag landscape.
 PAGE_W, PAGE_H = landscape(A4)
-MARGIN = 0.55 * cm
-USABLE_W = PAGE_W - 2 * MARGIN  # ~28.6 cm
+# Margin disamakan dengan .xls: kolom "No." di .xls mulai di x=34pt dari tepi kiri
+# (0.55cm terlalu mepet). 1.1cm bikin inset kiri/kanan mirip cetakan .xls.
+MARGIN = 1.1 * cm
+USABLE_W = PAGE_W - 2 * MARGIN  # ~27.5 cm
 
 
 def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas):
@@ -294,16 +296,16 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     pu_logo = None
     if os.path.exists(pu_logo_path):
         try:
-            pu_logo = Image(pu_logo_path, width=1.6 * cm, height=1.6 * cm)
+            pu_logo = Image(pu_logo_path, width=2.2 * cm, height=2.2 * cm)
         except Exception:
             pu_logo = None
 
     pu_addr_style = ParagraphStyle(
         'PuAddr', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, alignment=TA_LEFT,
+        fontName='Helvetica-Bold', fontSize=9.5, leading=12.5, alignment=TA_LEFT,
     )
     pu_addr_top = ParagraphStyle(
-        'PuAddrTop', parent=pu_addr_style, fontSize=9.5,
+        'PuAddrTop', parent=pu_addr_style, fontSize=10.5, leading=13.5,
     )
 
     pu_lines = [
@@ -318,7 +320,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     header_left = pu_logo if pu_logo else Paragraph('', pu_addr_style)
     header_right_cells = [[line] for line in pu_lines]
-    header_right = Table(header_right_cells, colWidths=[USABLE_W - 1.9 * cm])
+    header_right = Table(header_right_cells, colWidths=[USABLE_W - 2.5 * cm])
     header_right.setStyle(TableStyle([
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
@@ -328,7 +330,7 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
 
     header_row = Table(
         [[header_left, header_right]],
-        colWidths=[1.9 * cm, USABLE_W - 1.9 * cm],
+        colWidths=[2.5 * cm, USABLE_W - 2.5 * cm],
     )
     header_row.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -357,15 +359,18 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
                           title_style))
     story.append(Paragraph("DAERAH IRIGASI RIAM KANAN", sub_style))
 
-    # Metadata block — persis sample Excel: hanya Nama & Petugas, kolom kiri
+    # Metadata block — persis .xls: label rata KIRI di tepi margin (x~31.5pt) dan
+    # titik dua di x~122.6pt (jarak 91pt = 3.21cm dari label).
+    meta_left = ParagraphStyle('MetaLeft', parent=meta_style, alignment=TA_LEFT)
     meta_table = Table(
         [
-            [Paragraph("Nama", meta_style),
-             Paragraph(": " + str(meta.get('nama', '-')), meta_style)],
-            [Paragraph("Petugas", meta_style),
-             Paragraph(": " + str(meta.get('petugas', '-')), meta_style)],
+            [Paragraph("Nama", meta_left),
+             Paragraph(": " + str(meta.get('nama', '-')), meta_left)],
+            [Paragraph("Petugas", meta_left),
+             Paragraph(": " + str(meta.get('petugas', '-')), meta_left)],
         ],
-        colWidths=[2.4 * cm, 16.0 * cm],
+        colWidths=[3.21 * cm, USABLE_W - 3.21 * cm],
+        hAlign='LEFT',
     )
     meta_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
@@ -384,20 +389,19 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     #   xls: No=1137, Hari=2929, Lokasi=5774, Jenis=5774, Waktu=2190, TMA=2218,
     #        Status=2218, Cuaca=2190, TMA Pagi=3*2759, Selfi=3*2759
     # Status dikasih sedikit ekstra (2.4cm) biar "Tidak Normal" gak ke-split jelek.
-    col_widths_t1_cm = [
-        0.75,  # No
-        1.95,  # Hari/Tanggal
-        3.75,  # Titik Lokasi Pekerjaan
-        3.75,  # Jenis Pekerjaan
-        1.45,  # Waktu
-        1.50,  # TMA
-        2.40,  # Status
-        1.50,  # Cuaca
-        5.78,  # TMA Pagi (text + optional foto)
-        5.77,  # Selfi (foto)
-    ]
-    # Sum = 28.60 cm = USABLE_W
-    col_widths_t1 = [w * cm for w in col_widths_t1_cm]
+    col_widths_t1_frac = [
+        0.0262,  # No
+        0.0682,  # Hari/Tanggal
+        0.1311,  # Titik Lokasi Pekerjaan
+        0.1311,  # Jenis Pekerjaan
+        0.0507,  # Waktu
+        0.0524,  # TMA
+        0.0839,  # Status  (dikasih ekstra biar "Tidak Normal" gak ke-split jelek)
+        0.0524,  # Cuaca
+        0.2021,  # Foto TMA Pagi
+        0.2018,  # Selfi (foto)
+    ]  # sum = 1.0
+    col_widths_t1 = [w * USABLE_W for w in col_widths_t1_frac]
 
     # Header baris 1 - 10 cols (Pagi + Dokumentasi merged)
     # Header pakai Paragraph biar auto-wrap + center, gak nabrak cell sebelah
@@ -483,20 +487,23 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             selfi_cell,
         ])
 
-    # Pad ke minimum 3 baris body biar tetap kelihatan seperti formulir
-    while len(t1_data) < 5:
+    # .xls cuma punya 1 baris body per tabel -> jangan tambahin baris kosong banyak.
+    while len(t1_data) < 3:
         t1_data.append([''] * 10)
 
-    # rowHeights: baris yang ada foto = 3.2cm (foto full cell), baris kosong = 0.85cm.
-    # Ini yang bikin output "sama seperti .xls" (xls cuma punya 1 baris data tinggi,
-    # bukan 5 baris kosong tinggi yang bikin boros & nggak muat 1 halaman).
+    # rowHeights: baris berisi data/foto = 3.2cm (ruang foto, sama seperti .xls),
+    # baris kosong tambahan = 0.85cm. Baris body pertama selalu tinggi.
     t1_row_heights = [0.8 * cm, 0.8 * cm]
     for r in range(2, len(t1_data)):
-        has_img = False
+        has = False
         if r - 2 < len(pagi_rows):
             _r = pagi_rows[r - 2]
-            has_img = bool(_r.get('selfi_imgs') or _r.get('tma_pagi_imgs'))
-        t1_row_heights.append(3.2 * cm if has_img else 0.85 * cm)
+            has = bool(_r.get('selfi_imgs') or _r.get('tma_pagi_imgs') or any(
+                str(_r.get(k) or '').strip()
+                for k in ('lokasi', 'jenis', 'waktu', 'tma', 'status', 'cuaca')))
+        t1_row_heights.append(3.2 * cm if has else 0.85 * cm)
+    if t1_row_heights[2] < 3.0 * cm:
+        t1_row_heights[2] = 3.2 * cm      # baris pertama selalu tinggi (ruang foto)
 
     t1 = Table(t1_data, colWidths=col_widths_t1, rowHeights=t1_row_heights, repeatRows=2)
     t1.setStyle(TableStyle([
@@ -538,21 +545,20 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     #   Dokumentasi{0% , 50% , 100%}
     # (Catatan: versi lama salah urut — Cuaca sebelum Alat; .xls = Alat dulu baru Cuaca.)
     # Lebar diambil dari proporsi kolom .xls, di-scale ke USABLE_W = 28.6 cm.
-    col_widths_t2_cm = [
-        0.75,  # No
-        1.95,  # Hari/Tanggal
-        3.80,  # Titik Lokasi Pekerjaan
-        3.80,  # Jenis Pekerjaan
-        1.45,  # Jam Mulai
-        1.47,  # Jam Akhir
-        2.90,  # Alat yang Digunakan
-        1.50,  # Cuaca
-        3.66,  # Dokumentasi 0%
-        3.66,  # Dokumentasi 50%
-        3.66,  # Dokumentasi 100%
-    ]
-    # Sum = 28.60 cm = USABLE_W
-    col_widths_t2 = [w * cm for w in col_widths_t2_cm]
+    col_widths_t2_frac = [
+        0.0262,  # No
+        0.0682,  # Hari/Tanggal
+        0.1329,  # Titik Lokasi Pekerjaan
+        0.1329,  # Jenis Pekerjaan
+        0.0507,  # Jam Mulai
+        0.0514,  # Jam Akhir
+        0.1014,  # Alat yang Digunakan
+        0.0524,  # Cuaca
+        0.1280,  # Dokumentasi 0%
+        0.1280,  # Dokumentasi 50%
+        0.1279,  # Dokumentasi 100%
+    ]  # sum = 1.0
+    col_widths_t2 = [w * USABLE_W for w in col_widths_t2_frac]
 
     t2_header1 = [
         Paragraph('No.', header_style),
@@ -596,18 +602,22 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
             ImageStack(f1, max_w=3.6 * cm, max_h=3.2 * cm) if f1 else '',
         ])
 
-    # Pad ke minimum 3 baris body
-    while len(t2_data) < 5:
+    # .xls cuma punya 1 baris body per tabel
+    while len(t2_data) < 3:
         t2_data.append([''] * 11)
 
-    # rowHeights: baris berisi foto = 3.2cm, baris kosong = 0.85cm
+    # rowHeights: baris berisi data/foto = 3.2cm, baris kosong tambahan = 0.85cm.
     t2_row_heights = [0.8 * cm, 0.8 * cm]
     for r in range(2, len(t2_data)):
-        has_img = False
+        has = False
         if r - 2 < len(kerja_rows):
             _k = kerja_rows[r - 2]
-            has_img = bool(_k.get('foto0_imgs') or _k.get('foto05_imgs') or _k.get('foto1_imgs'))
-        t2_row_heights.append(3.2 * cm if has_img else 0.85 * cm)
+            has = bool(_k.get('foto0_imgs') or _k.get('foto05_imgs') or _k.get('foto1_imgs') or any(
+                str(_k.get(k) or '').strip()
+                for k in ('lokasi', 'jenis', 'jam_mulai', 'jam_akhir', 'alat', 'cuaca')))
+        t2_row_heights.append(3.2 * cm if has else 0.85 * cm)
+    if t2_row_heights[2] < 3.0 * cm:
+        t2_row_heights[2] = 3.2 * cm      # baris pertama selalu tinggi (ruang foto)
 
     t2 = Table(t2_data, colWidths=col_widths_t2, rowHeights=t2_row_heights, repeatRows=2)
     t2.setStyle(TableStyle([
@@ -641,9 +651,19 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (0% / 50% / 100%)
     ]))
     story.append(t2)
-    story.append(Spacer(1, 0.35 * cm))
+    story.append(Spacer(1, 0.15 * cm))
 
     # ---------- TTD ----------
+    # Batasi ukuran gambar TTD biar blok tanda tangan gak mendorong baris nama ke
+    # halaman berikutnya (row 3.2cm x 2 tabel + TTD udah mepet di A4 landscape).
+    def _fit_sig(img, max_w=6.0 * cm, max_h=1.5 * cm):
+        if img is None:
+            return None
+        w, h = img.drawWidth, img.drawHeight
+        s = min(max_w / w, max_h / h)
+        img.drawWidth, img.drawHeight = w * s, h * s
+        return img
+
     # Blok tanda tangan persis .xls: "Mengetahui : / Pengamat DI. Riam Kanan" (kiri),
     # "Dibuat oleh : / <label petugas>" (kanan), lalu nama (bold+underline).
     # Baris NIP hanya muncul kalau memang diisi (di .xls asli tidak ada baris NIP).
@@ -651,8 +671,8 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         Paragraph("<b>Mengetahui :</b><br/>Pengamat DI. Riam Kanan", meta_style),
         Paragraph("<b>Dibuat oleh :</b><br/>" + str(meta.get('petugas_label', 'Petugas')), meta_style),
     ], [
-        signature_pengamat or Paragraph('<br/><br/><br/><br/>', meta_style),
-        signature_petugas or Paragraph('<br/><br/><br/><br/>', meta_style),
+        _fit_sig(signature_pengamat) or Paragraph('<br/><br/><br/>', meta_style),
+        _fit_sig(signature_petugas) or Paragraph('<br/><br/><br/>', meta_style),
     ], [
         Paragraph("<b><u>" + str(meta.get('pengamat', 'AKHMAD MUHAZIR')).upper() + "</u></b>", meta_style),
         Paragraph("<b><u>" + str(meta.get('nama', '.........................')).upper() + "</u></b>", meta_style),
@@ -666,13 +686,13 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ])
     ttd_data = ttd_rows
 
-    ttd = Table(ttd_data, colWidths=[14.3 * cm, 14.3 * cm])
+    ttd = Table(ttd_data, colWidths=[USABLE_W / 2, USABLE_W / 2])
     ttd.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
     ]))
     story.append(ttd)
