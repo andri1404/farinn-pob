@@ -987,9 +987,18 @@ async function submitFormTo(target, newTab) {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const blob = await resp.blob();
     if (blob.type.indexOf('pdf') === -1) throw new Error('respons bukan PDF');
-    let fname = 'Laporan-POB.pdf';
-    const mm = (resp.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/);
-    if (mm) fname = mm[1];
+    // Nama berkas asli diambil dari header Content-Disposition yang dikirim server
+    // (mis. "Laporan Harian Muhammad Andri S.Pd 03-10-2026.pdf").
+    // Bentuk filename*=UTF-8''... diprioritaskan, kalau nggak ada baru filename="...".
+    let fname = 'Laporan Harian.pdf';
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const mmStar = cd.match(/filename\*=UTF-8''([^;]+)/i);
+    const mmPlain = cd.match(/filename="?([^";]+)"?/i);
+    if (mmStar) {
+      try { fname = decodeURIComponent(mmStar[1]); } catch (e) { fname = mmStar[1]; }
+    } else if (mmPlain) {
+      fname = mmPlain[1];
+    }
     setStatus('');
     tampilkanHasil(blob, fname);
   } catch (err) {

@@ -27,6 +27,7 @@ import re
 import json
 import base64
 from datetime import datetime, date
+from urllib.parse import quote
 from io import BytesIO
 
 from flask import Flask, render_template, request, send_file, jsonify, redirect
@@ -856,6 +857,59 @@ def _render_pdf(base_date):
     return build_pdf(meta, pagi, kerja, sig_pengamat, sig_petugas)
 
 
+def _nama_petugas_untuk_file() -> str:
+    """Nama petugas yang sudah dibersihkan, buat dipakai di nama berkas PDF.
+
+    Nama berkas nggak boleh mengandung \\ / : * ? " < > | dan karakter kontrol;
+    koma juga diganti spasi biar rapi ("Muhammad Andri, S.Pd" -> "Muhammad Andri
+    S.Pd"). Dipotong 60 karakter biar nama berkasnya nggak kepanjangan.
+    """
+    nama = (request.form.get('nama') or '').strip()
+    if not nama:
+        return ''
+    nama = re.sub(r'[\\/:*?"<>|\r\n\t]+', ' ', nama)
+    nama = nama.replace(',', ' ').replace(';', ' ')
+    nama = re.sub(r'\s+', ' ', nama).strip(' .-_')
+    return nama[:60].strip()
+
+
+def _nama_file_pdf(base_iso: str) -> str:
+    """Nama berkas PDF: 'Laporan Harian <Nama> <DD-MM-YYYY>.pdf'.
+
+    Contoh: 'Laporan Harian Muhammad Andri S.Pd 03-10-2026.pdf'
+    Kalau nama petugas kosong, bagian nama dilewati.
+    """
+    tgl = base_iso
+    try:
+        y, m, d = base_iso.split('-')
+        tgl = f'{d}-{m}-{y}'
+    except (ValueError, AttributeError):
+        pass
+    bagian = ['Laporan Harian']
+    nama = _nama_petugas_untuk_file()
+    if nama:
+        bagian.append(nama)
+    bagian.append(tgl)
+    return ' '.join(bagian) + '.pdf'
+
+
+def _kirim_pdf(pdf, fname: str, lampiran: bool):
+    """Kirim PDF dengan nama berkas yang benar.
+
+    dipasang DUA bentuk header sekaligus:
+      filename="..."            -> cadangan ASCII (browser lama / WebView HP)
+      filename*=UTF-8''...      -> RFC 5987 (nama non-ASCII tetap utuh)
+    """
+    resp = send_file(pdf, mimetype='application/pdf',
+                     as_attachment=lampiran, download_name=fname)
+    disp = 'attachment' if lampiran else 'inline'
+    fallback = fname.encode('ascii', 'ignore').decode('ascii').replace('"', '') or 'Laporan Harian.pdf'
+    resp.headers['Content-Disposition'] = (
+        f'{disp}; filename="{fallback}"; filename*=UTF-8\'\'{quote(fname)}'
+    )
+    return resp
+
+
 @app.route('/preview', methods=['POST', 'GET'])
 def preview():
     """Preview = PDF yang SAMA PERSIS dengan hasil Generate.
@@ -866,9 +920,10 @@ def preview():
     """
     if request.method == 'GET':
         return redirect('/')
-    pdf = _render_pdf(_form_date())
-    return send_file(pdf, mimetype='application/pdf', as_attachment=False,
-                     download_name='Preview-Laporan.pdf')
+    base = _form_date()
+    pdf = _render_pdf(base)
+    # Nama berkas ikut nama petugas + tanggal laporan.
+    return _kirim_pdf(pdf, _nama_file_pdf(base), lampiran=False)
 
 
 @app.route('/generate', methods=['POST', 'GET'])
@@ -878,9 +933,9 @@ def generate():
         return redirect('/')
     base = _form_date()
     pdf = _render_pdf(base)
-    fname = "Laporan-POB-" + base + ".pdf"
-    return send_file(pdf, mimetype='application/pdf', as_attachment=True,
-                     download_name=fname)
+    # Nama berkas ikut nama petugas + tanggal laporan, mis.
+    # "Laporan Harian Muhammad Andri S.Pd 03-10-2026.pdf"
+    return _kirim_pdf(pdf, _nama_file_pdf(base), lampiran=True)
 
 
 @app.route('/manifest.webmanifest')
