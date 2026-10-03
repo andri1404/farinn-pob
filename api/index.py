@@ -902,6 +902,21 @@ def manifest():
     )
 
 
+@app.route('/sw.js')
+def service_worker():
+    """Service worker disajikan dari root supaya scope-nya '/' (syarat install PWA)."""
+    path = os.path.join(PROJECT_DIR, 'static', 'sw.js')
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            body = f.read()
+    except OSError:
+        body = "self.addEventListener('fetch', function(){});"
+    resp = app.response_class(body, mimetype='application/javascript')
+    resp.headers['Service-Worker-Allowed'] = '/'
+    resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
 @app.route('/healthz')
 def healthz():
     return jsonify({'status': 'ok', 'service': 'farinn-pob'})

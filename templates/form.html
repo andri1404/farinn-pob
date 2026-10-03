@@ -646,6 +646,13 @@ async function submitFormTo(target, newTab) {
 function submitPreview() { submitFormTo('/preview', false); }
 function submitGenerate() { submitFormTo('/generate', true); }
 
+// --- PWA: daftarkan service worker (biar Android nawarin "Install app") ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* nggak fatal */ });
+  });
+}
+
 function resetForm() {
   if (!confirm('Reset semua field ke default? Foto yang sudah dipilih akan hilang.')) return;
   document.getElementById('form-laporan').reset();
