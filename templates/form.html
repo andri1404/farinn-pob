@@ -65,27 +65,7 @@
 <form id="form-laporan" action="/generate" method="post" enctype="multipart/form-data" target="_blank">
 
   <!-- Daftar saran: bisa DIPILIH dari dropdown, tapi tetap boleh diketik bebas -->
-  <datalist id="dl-lokasi">
-    <option value="BGT. 8"></option>
-    <option value="BGT. 9"></option>
-    <option value="BGT. 10"></option>
-    <option value="BGT. 11"></option>
-    <option value="BGT. 12"></option>
-    <option value="Bendung"></option>
-    <option value="Intake"></option>
-    <option value="Saluran Induk"></option>
-  </datalist>
 
-  <datalist id="dl-jenis">
-    <option value="Pemeriksaan rutin"></option>
-    <option value="Pembersihan sampah"></option>
-    <option value="Pembersihan rumput"></option>
-    <option value="Pengukuran TMA"></option>
-    <option value="Pelumasan pintu"></option>
-    <option value="Perbaikan pintu"></option>
-    <option value="Pengecatan"></option>
-    <option value="Pemangkasan pohon"></option>
-  </datalist>
 
   <datalist id="dl-alat">
     <option value="Cangkul"></option>
@@ -151,7 +131,7 @@
   <section class="card">
     <h2>2. Tabel 1 — Pemeriksaan Pagi</h2>
     <p class="hint">Pemeriksaan rutin pagi hari: lokasi, jenis pekerjaan, waktu, TMA, status, cuaca, foto TMA pagi, dan foto selfie.</p>
-    <p class="table-scroll-hint">↔ Geser tabel ke samping &nbsp;•&nbsp; Lokasi / Pekerjaan / Alat bisa dipilih dari daftar atau diketik bebas</p>
+    <p class="table-scroll-hint">↔ Geser tabel ke samping &nbsp;•&nbsp; Lokasi &amp; Pekerjaan: pilih dari dropdown (ada opsi Lainnya buat ketik sendiri)</p>
     <table class="data" id="tbl-pagi">
       <thead>
         <tr>
@@ -172,8 +152,8 @@
         <tr>
           <td class="num">{{ i }}</td>
           <td><input type="text" class="inp-tanggal" name="pagi-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
-          <td><input type="text" name="pagi-{{ i }}-lokasi" list="dl-lokasi" placeholder="Contoh: BGT. 8"></td>
-          <td><input type="text" name="pagi-{{ i }}-jenis" list="dl-jenis" placeholder="Pemeriksaan rutin"></td>
+          <td><div class="pilih-cust" data-nama="pagi-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
+          <td><div class="pilih-cust" data-nama="pagi-{{ i }}-jenis" data-jenis="jenis"></div></td>
           <td>
             <div class="time-pick">
               <select class="tp-h" aria-label="Jam"></select><span class="tp-sep">:</span><select class="tp-m" aria-label="Menit"></select>
@@ -220,7 +200,7 @@
   <section class="card">
     <h2>3. Tabel 2 — Kegiatan Pekerjaan <button type="button" class="btn-add" id="btn-add-kerja">+ Tambah Baris</button></h2>
     <p class="hint">Jam Mulai/Akhir, alat yang dipakai, cuaca, dan dokumentasi foto (progress 0% → 50% → 100%). Tambah baris lewat tombol hijau.</p>
-    <p class="table-scroll-hint">↔ Geser tabel ke samping &nbsp;•&nbsp; Lokasi / Pekerjaan / Alat bisa dipilih dari daftar atau diketik bebas</p>
+    <p class="table-scroll-hint">↔ Geser tabel ke samping &nbsp;•&nbsp; Lokasi &amp; Pekerjaan: pilih dari dropdown (ada opsi Lainnya buat ketik sendiri)</p>
     <table class="data" id="tbl-kerja">
       <thead>
         <tr>
@@ -242,8 +222,8 @@
         <tr class="row-kerja">
           <td class="num">{{ i }}</td>
           <td><input type="text" class="inp-tanggal" name="kerja-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
-          <td><input type="text" name="kerja-{{ i }}-lokasi" list="dl-lokasi" placeholder="Contoh: BGT. 8"></td>
-          <td><input type="text" name="kerja-{{ i }}-jenis" list="dl-jenis" placeholder="Pembersihan"></td>
+          <td><div class="pilih-cust" data-nama="kerja-{{ i }}-lokasi" data-jenis="lokasi"></div></td>
+          <td><div class="pilih-cust" data-nama="kerja-{{ i }}-jenis" data-jenis="jenis"></div></td>
           <td>
             <div class="time-pick">
               <select class="tp-h" aria-label="Jam"></select><span class="tp-sep">:</span><select class="tp-m" aria-label="Menit"></select>
@@ -511,6 +491,104 @@ function setTimePick(wrap, nilai) {
   syncTimePick(wrap);
 }
 
+// --- Lokasi & Jenis Pekerjaan: dropdown BENERAN + opsi "Lainnya" ---
+// <datalist> TIDAK jalan di WebView Android (cuma keliatan input biasa), jadi
+// dipakai <select> asli supaya dropdown-nya pasti muncul di semua HP.
+// Nilai akhir dikirim lewat <input type=hidden class="pc-val"> dengan NAME yang
+// sama seperti field aslinya -> server tidak perlu diubah.
+const LOKASI_PILIHAN = ['BGT. 8', 'BGT. 9', 'BGT. 10', 'BGT. 11', 'BGT. 12'];
+const JENIS_PILIHAN = ['Pemeriksaan rutin', 'Pembersihan sampah', 'Pembersihan rumput',
+                       'Pengukuran TMA', 'Pelumasan pintu', 'Perbaikan pintu',
+                       'Pengecatan', 'Pemangkasan pohon'];
+const CUSTOM = '__custom__';
+
+function opsiDari(daftar) {
+  return daftar.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+}
+
+function pilihCustHTML(nama, jenis) {
+  const daftar = (jenis === 'lokasi') ? LOKASI_PILIHAN : JENIS_PILIHAN;
+  const label = (jenis === 'lokasi') ? 'Lokasi' : 'Jenis pekerjaan';
+  return '<div class="pilih-cust" data-nama="' + nama + '" data-jenis="' + jenis + '">' +
+    '<select class="pc-sel" aria-label="' + label + '">' +
+      '<option value="">— pilih —</option>' + opsiDari(daftar) +
+      '<option value="' + CUSTOM + '">Lainnya… (ketik sendiri)</option>' +
+    '</select>' +
+    '<input type="text" class="pc-teks" placeholder="Ketik ' + label.toLowerCase() + '…">' +
+    '<input type="hidden" class="pc-val" name="' + nama + '">' +
+  '</div>';
+}
+
+// Isi wadah .pilih-cust yang masih kosong (yang ditulis di HTML / baris baru).
+function isiPilihCust(root) {
+  const scope = root || document;
+  scope.querySelectorAll('.pilih-cust').forEach(wrap => {
+    if (!wrap.querySelector('.pc-sel')) {
+      wrap.innerHTML = pilihCustHTML(wrap.dataset.nama, wrap.dataset.jenis)
+                         .replace(/^<div[^>]*>/, '').replace(/<\/div>$/, '');
+      wrap.removeAttribute('data-asli');
+    }
+    syncPilihCust(wrap);
+  });
+}
+
+function syncPilihCust(wrap) {
+  if (!wrap) return;
+  const sel = wrap.querySelector('.pc-sel');
+  const teks = wrap.querySelector('.pc-teks');
+  const val = wrap.querySelector('.pc-val');
+  if (!sel || !teks || !val) return;
+  const custom = (sel.value === CUSTOM);
+  teks.style.display = custom ? '' : 'none';
+  val.value = custom ? teks.value : sel.value;
+}
+
+// Pasang nilai ke dropdown (dipakai saat pulihkan draf / reset).
+function setPilihCust(wrap, nilai) {
+  if (!wrap) return;
+  const sel = wrap.querySelector('.pc-sel');
+  const teks = wrap.querySelector('.pc-teks');
+  const val = wrap.querySelector('.pc-val');
+  if (!sel || !teks || !val) return;
+  const opsi = [...sel.options].map(o => o.value);
+  if (!nilai) {
+    sel.value = '';
+    teks.value = '';
+    teks.style.display = 'none';
+    val.value = '';
+    return;
+  }
+  if (opsi.indexOf(nilai) >= 0) {
+    sel.value = nilai;
+    teks.value = '';
+    teks.style.display = 'none';
+  } else {
+    sel.value = CUSTOM;
+    teks.value = nilai;
+    teks.style.display = '';
+  }
+  val.value = nilai;
+}
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('pc-sel')) {
+    const w = t.closest('.pilih-cust');
+    syncPilihCust(w);
+    if (t.value === CUSTOM) {
+      const teks = w.querySelector('.pc-teks');
+      if (teks) { teks.style.display = ''; teks.focus(); }
+    }
+  }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('pc-teks')) {
+    syncPilihCust(t.closest('.pilih-cust'));
+  }
+});
+
 // Kalau user ngetik sendiri di kolom Hari/Tanggal, tandai biar nggak ditimpa otomatis.
 document.addEventListener('input', e => {
   const t = e.target;
@@ -658,8 +736,8 @@ function buildKerjaRow(idx) {
     <tr class="row-kerja">
       <td class="num">${idx}</td>
       <td><input type="text" class="inp-tanggal" name="kerja-${idx}-hari_tanggal" placeholder="03/10/2026"></td>
-      <td><input type="text" name="kerja-${idx}-lokasi" list="dl-lokasi" placeholder="Contoh: BGT. 8"></td>
-      <td><input type="text" name="kerja-${idx}-jenis" list="dl-jenis" placeholder="Pembersihan"></td>
+      <td><div class="pilih-cust" data-nama="kerja-${idx}-lokasi" data-jenis="lokasi"></div></td>
+      <td><div class="pilih-cust" data-nama="kerja-${idx}-jenis" data-jenis="jenis"></div></td>
       <td>${timePickHTML('kerja-' + idx + '-jam_mulai')}</td>
       <td>${timePickHTML('kerja-' + idx + '-jam_akhir')}</td>
       <td><input type="text" name="kerja-${idx}-alat" list="dl-alat" placeholder="Cangkul, Sabit, dll"></td>
@@ -701,6 +779,7 @@ document.getElementById('btn-add-kerja').addEventListener('click', () => {
   const tbody = document.getElementById('tbody-kerja');
   tbody.insertAdjacentHTML('beforeend', buildKerjaRow(kerjaRowCount));
   isiTimePickers(tbody);
+  isiPilihCust(tbody);
   bindPreviewListeners();
   syncTanggal();   // isi kolom Hari/Tanggal baris baru
 });
@@ -1083,7 +1162,14 @@ function pulihkanDraf(d) {
     setTimePick(w, v ? v.value : '');
   });
 
+  // dropdown Lokasi/Pekerjaan dipulihkan dari nilai tersembunyinya
+  document.querySelectorAll('.pilih-cust').forEach(w => {
+    const v = w.querySelector('.pc-val');
+    setPilihCust(w, v ? v.value : '');
+  });
+
   isiTimePickers();
+  isiPilihCust();
   syncTanggal();
   return true;
 }
@@ -1127,8 +1213,9 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('pagehide', () => { clearTimeout(drafTimer); simpanDraf(); });
 
-// Siapkan dropdown jam + opsi datalist (Lokasi / Pekerjaan / Alat).
+// Siapkan dropdown jam + dropdown Lokasi/Pekerjaan + opsi alat.
 isiTimePickers();
+isiPilihCust();
 
 // Siapkan pad tanda tangan + samakan label namanya dengan field identitas.
 initAllPads();
@@ -1173,8 +1260,9 @@ function resetForm() {
   });
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
-  // Kosongkan semua dropdown jam setelah reset
+  // Kosongkan semua dropdown jam + Lokasi/Pekerjaan setelah reset
   document.querySelectorAll('.time-pick').forEach(w => setTimePick(w, ''));
+  document.querySelectorAll('.pilih-cust').forEach(w => setPilihCust(w, ''));
   // Reset berarti mulai baru -> draf tersimpan ikut dibuang
   try { localStorage.removeItem(DRAF_KEY); } catch (e) {}
   tulisStatusDraf('');

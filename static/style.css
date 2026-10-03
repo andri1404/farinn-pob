@@ -549,6 +549,18 @@ input.inp-tanggal { min-width: 106px; }
   margin: 0 1px;
 }
 
+/* --- Lokasi / Jenis Pekerjaan: dropdown + opsi "Lainnya" --- */
+.pilih-cust { display: flex; flex-direction: column; gap: 4px; min-width: 132px; }
+.pilih-cust .pc-sel { margin-top: 0; }
+.pilih-cust .pc-teks { margin-top: 0; }
+.pilih-cust .pc-teks[style*="display: none"] { display: none !important; }
+
+table.data .pilih-cust .pc-sel,
+table.data .pilih-cust .pc-teks {
+  min-height: 38px;
+  font-size: 16px;
+}
+
 /* ============================ TANDA TANGAN ============================ */
 
 .sig-wrap { display: flex; flex-direction: column; gap: 6px; }
@@ -785,7 +797,8 @@ table.data tbody tr.row-kerja td:last-child { min-width: 150px; text-align: cent
 .preview-img.multi img { width: 54px; height: 54px; }
 .preview-img.multi small { width: 100%; }
 
-/* nilai jam hasil gabungan dropdown (cuma buat dikirim ke server) */
-.tp-val { display: none !important; }
+/* nilai jam / lokasi hasil gabungan dropdown (cuma buat dikirim ke server) */
+.tp-val,
+.pc-val { display: none !important; }
 
 /* 'bound' cuma penanda internal JS (biar listener tidak dobel) */
