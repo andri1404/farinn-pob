@@ -679,6 +679,25 @@ table.data .pilih-cust .pc-teks {
 .draf-banner-teks { font-size: 14px; color: var(--bs-primary-text); }
 .draf-banner-teks span { font-size: 12px; color: var(--bs-muted); }
 
+/* pemilih draf kalau di browser yang sama ada beberapa petugas */
+.draf-pilih-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--bs-muted);
+}
+.draf-pilih-wrap select {
+  width: auto;
+  min-width: 190px;
+  max-width: 100%;
+  min-height: 36px;
+  margin-top: 0;
+  padding: 4px 28px 4px 8px;
+  font-size: 13px;
+}
+
 .draf-banner-aksi { display: flex; flex-wrap: wrap; gap: 8px; }
 .draf-banner-aksi button { flex: 0 0 auto; }
 
