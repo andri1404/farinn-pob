@@ -60,7 +60,7 @@
   <!-- ============== TABEL 1 — PEMERIKSAAN PAGI ============== -->
   <section class="card">
     <h2>2. Tabel 1 — Pemeriksaan Pagi</h2>
-    <p class="hint">Pemeriksaan rutin pagi hari: lokasi, jenis pekerjaan, waktu, TMA, status, cuaca, TMA pagi (teks &amp; foto), dan foto selfie.</p>
+    <p class="hint">Pemeriksaan rutin pagi hari: lokasi, jenis pekerjaan, waktu, TMA, status, cuaca, foto TMA pagi, dan foto selfie.</p>
     <table class="data" id="tbl-pagi">
       <thead>
         <tr>
@@ -398,9 +398,19 @@ async function compressAllPass(form, maxSide, quality, onTick) {
       count++;
       if (onTick) onTick(count);
     }
-    const dt = new DataTransfer();
-    out.forEach(f => dt.items.add(f));
-    input.files = dt.files;
+    // Ganti isi input dengan versi terkompres.
+    // Sebagian browser lama (iOS Safari < 14.1) nggak bisa set input.files ->
+    // kalau gagal, biarkan file asli (lebih baik kena 413 daripada form rusak).
+    try {
+      const dt = new DataTransfer();
+      out.forEach(f => dt.items.add(f));
+      input.files = dt.files;
+    } catch (e) {
+      console.warn('Gagal set input.files (browser lama?), pakai file asli:', e);
+      total -= out.reduce((s, f) => s + f.size, 0);
+      const orig = Array.from(input.files || []);
+      total += orig.reduce((s, f) => s + f.size, 0);
+    }
   }
   return { total, count };
 }
