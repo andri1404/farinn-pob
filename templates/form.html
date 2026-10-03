@@ -1220,9 +1220,10 @@ function simpanDraf() {
   const kunci = kunciDraf(namaSekarang());
   try {
     localStorage.setItem(kunci, JSON.stringify(kumpulkanDraf()));
-    // Kalau nama baru diisi/diubah, kunci lama yang KITA tulis tadi dibuang
-    // supaya tidak menumpuk draf kosong. Draf milik orang lain tidak disentuh.
-    if (drafAktif && drafAktif !== kunci) {
+    // HANYA kunci sementara '(belum ada nama)' yang boleh dibuang saat nama
+    // baru diisi. Draf milik petugas lain JANGAN disentuh — ini persis yang
+    // mau dicegah (jangan sampai draf orang lain kehapus/ketimpa).
+    if (drafAktif && drafAktif !== kunci && drafAktif === DRAF_PREFIX + 'umum') {
       try { localStorage.removeItem(drafAktif); } catch (e) {}
     }
     drafAktif = kunci;
