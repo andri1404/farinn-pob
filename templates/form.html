@@ -144,7 +144,7 @@
           <th>Status</th>
           <th>Cuaca</th>
           <th>Foto TMA Pagi<br><small>(foto saja)</small></th>
-          <th>Foto Selfi<br><small>(bisa banyak)</small></th>
+          <th>Foto Selfi</th>
         </tr>
       </thead>
       <tbody>
@@ -182,8 +182,8 @@
           </td>
           <td>
             <label class="btn-upload" for="pagi-{{ i }}-selfi">📁 Pilih Foto</label>
-            <input type="file" id="pagi-{{ i }}-selfi" name="pagi-{{ i }}-selfi" accept="image/*" multiple class="hidden-file" data-preview="prev-pagi-{{ i }}">
-            <div class="preview-img multi" id="prev-pagi-{{ i }}"></div>
+            <input type="file" id="pagi-{{ i }}-selfi" name="pagi-{{ i }}-selfi" accept="image/*" class="hidden-file" data-preview="prev-pagi-{{ i }}">
+            <div class="preview-img" id="prev-pagi-{{ i }}"></div>
           </td>
         </tr>
         {% endfor %}

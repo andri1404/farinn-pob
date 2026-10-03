@@ -463,16 +463,14 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     t1_data = [t1_header1, t1_header2]
     for i, row in enumerate(pagi_rows, start=1):
         selfi_imgs = row.get('selfi_imgs') or []
-        # Selfi cell: 1-3 foto, side-by-side kalau <=2, stacked kalau 3+
-        # Selfi col = 4.4cm. Padding 2 left + 2 right = 4.0cm effective.
-        # 1 foto: max_w 4.0cm. 2 foto: per-image ~2.0cm. 3 foto stacked: 1.5cm each.
+        # Selfi: 1 foto saja (permintaan user 03/10) — ukuran & layout disamakan
+        # dengan kolom Foto TMA Pagi.
         if selfi_imgs:
-            if len(selfi_imgs) == 1:
-                selfi_cell = ImageStack(selfi_imgs, max_w=4.0 * cm, max_h=3.2 * cm, layout='horizontal', gap=0)
-            elif len(selfi_imgs) == 2:
-                selfi_cell = ImageStack(selfi_imgs, max_w=2.0 * cm, max_h=3.2 * cm, layout='horizontal', gap=2)
-            else:
-                selfi_cell = ImageStack(selfi_imgs[:3], max_w=4.0 * cm, max_h=0.9 * cm, layout='vertical', gap=2)
+            # Sama seperti foto TMA pagi: satu foto, penuh mengisi cell.
+            selfi_cell = ImageStack(
+                selfi_imgs[:1], max_w=5.78 * cm, max_h=3.2 * cm,
+                layout='vertical', gap=0,
+            )
         else:
             selfi_cell = ''
         # TMA Pagi cell: FOTO SAJA (input teks dihapus — permintaan user 03/10).
