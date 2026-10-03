@@ -746,19 +746,45 @@ a, button, label, select, input,
 
   .card { margin: 12px; }
 
-  /* tabel full-bleed biar scroll-nya kelihatan sengaja */
-  table.data {
-    width: calc(100% + 32px);
-    max-width: calc(100% + 32px);
-    margin-left: -16px;
-    margin-right: -16px;
+  /* Tabel dibuat rata tepi kartu (full-bleed) biar geser-nya kelihatan sengaja.
+     width 100% + margin 0 = pas dengan lebar kartu, jadi tepi tabel TIDAK
+     kepotong oleh overflow:hidden kartu (sebelumnya tabel meluber ~15px). */
+  .card > table.data {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   /* target sentuh min 44px */
   button, .btn-primary, .btn-secondary, .btn-ghost { min-height: 44px; }
   input[type="text"], input[type="date"], input[type="time"], select { min-height: 44px; }
-  table.data input, table.data select { min-height: 42px; }
+  table.data input, table.data select { min-height: 44px; }
   .btn-upload { min-height: 42px; }
+
+  /* dropdown Lokasi/Pekerjaan/Jabatan: aturan dasarnya 38px, dinaikkan */
+  table.data .pilih-cust .pc-sel,
+  .pilih-cust .pc-sel,
+  .pilih-cust .pc-teks { min-height: 44px; }
+
+  /* tombol "+ Tambah Baris" & tombol hapus baris: 30/24px kekecilan buat jempol */
+  .btn-add {
+    min-height: 40px;
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .btn-remove {
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    font-size: 18px;
+  }
+
+  /* menu navbar & remah breadcrumb: area ketuk dinaikkan (tadinya 21-35px) */
+  .navbar-links a,
+  .navbar-links .soon { padding: 9px 12px; }
+  .breadcrumb a { display: inline-block; padding: 9px 0; }
+  .breadcrumb li + li::before { padding: 0 7px; }
 
   .action-bar {
     position: sticky;
