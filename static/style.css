@@ -487,13 +487,24 @@ input.inp-tanggal { min-width: 108px; }
 .sig-label {
   display: flex;
   flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 6px;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 4px 8px;
   font-size: 14px;
   font-weight: 700;
   color: var(--content-primary);
 }
-.sig-label span { font-weight: 500; font-size: 12px; color: var(--content-secondary); }
+.sig-label span {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--content-secondary);
+}
+.sig-label span:not(:empty)::before {
+  content: "•";
+  margin-right: 6px;
+  color: var(--brand-500);
+  font-weight: 700;
+}
 
 .sig-pad {
   display: block;
@@ -628,7 +639,16 @@ a, button, label, select, input,
   .action-bar button { flex: 1 1 30%; }
   .btn-hasil { flex: 1 1 100%; }
 
-  table.data { border-radius: var(--radius-md); }
+  /* Tabel dibuat full-bleed ke tepi card, biar potongan scroll-nya kelihatan
+     sengaja (bukan kayak kepotong). */
+  table.data {
+    margin-left: -16px;
+    margin-right: -16px;
+    width: calc(100% + 32px);
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
   table.data thead th { position: static; }
 }
 
