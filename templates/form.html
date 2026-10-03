@@ -440,7 +440,7 @@ function timePickHTML(name) {
     '<select class="tp-h" aria-label="Jam"><option value="">Jam</option>' +
       JAM_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('') + '</select>' +
     '<span class="tp-sep">:</span>' +
-    '<select class="tp-m" aria-label="Menit"><option value="">Menit</option>' +
+    '<select class="tp-m" aria-label="Menit"><option value="">Mnt</option>' +
       MENIT_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('') + '</select>' +
     '<input type="hidden" class="tp-val" name="' + name + '">' +
   '</div>';
@@ -457,7 +457,7 @@ function isiTimePickers(root) {
         JAM_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('');
     }
     if (m && !m.options.length) {
-      m.innerHTML = '<option value="">Menit</option>' +
+      m.innerHTML = '<option value="">Mnt</option>' +
         MENIT_OPTS.map(v => '<option value="' + v + '">' + v + '</option>').join('');
     }
     syncTimePick(wrap);
