@@ -250,6 +250,23 @@
     <button type="button" class="btn-primary" onclick="submitGenerate()" id="btn-generate">📄 Generate PDF</button>
   </div>
   <div id="upload-status" style="text-align:center;font-size:12px;padding:6px 10px;color:#555"></div>
+
+  <!-- Hasil generate: panel dengan tombol download/bagikan -->
+  <div id="hasil-panel" class="hasil-panel" style="display:none">
+    <div class="hasil-title">✅ Laporan siap</div>
+    <div class="hasil-file" id="hasil-file">—</div>
+    <div class="hasil-actions">
+      <a id="hasil-download" class="btn-primary btn-hasil" download href="#">⬇️ Download PDF</a>
+      <button type="button" class="btn-secondary btn-hasil" id="hasil-share" onclick="shareHasil()">📤 Bagikan</button>
+      <a id="hasil-open" class="btn-ghost btn-hasil" target="_blank" rel="noopener" href="#">👁 Buka PDF</a>
+      <button type="button" class="btn-ghost btn-hasil" onclick="tutupHasil()">✖ Tutup</button>
+    </div>
+    <div class="hasil-tip" id="hasil-tip">
+      Tombol <b>Download</b> nggak jalan (browser dalam aplikasi)? Pakai <b>👁 Buka PDF</b>,
+      terus simpan/bagikan dari situ — atau <b>📤 Bagikan</b> langsung ke WhatsApp.
+    </div>
+  </div>
+
   <div id="upload-info" style="text-align:center;font-size:11px;padding:0 10px 8px;color:#888">
     Foto otomatis dikompres sebelum dikirim (batas server 4,5 MB total).
   </div>
@@ -723,48 +740,84 @@ async function submitFormTo(target, newTab) {
       setStatus('📤 Mengirim…');
     }
 
-    // Kalau HP mendukung Web Share berkas (Android/Chrome), ambil PDF-nya lalu
-    // tawarkan "Bagikan / Simpan" — jauh lebih enak daripada download di WebView.
-    const bisaShare = (typeof navigator.canShare === 'function' && target === '/generate');
-    if (bisaShare) {
-      try {
-        setStatus('⏳ Membuat PDF…');
-        const resp = await fetch(target, { method: 'POST', body: new FormData(f) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const blob = await resp.blob();
-        if (blob.type.indexOf('pdf') === -1) throw new Error('respons bukan PDF');
-        let fname = 'Laporan-POB.pdf';
-        const mm = (resp.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/);
-        if (mm) fname = mm[1];
-        if (navigator.canShare({ files: [new File([blob], fname, { type: 'application/pdf' })] })) {
-          try {
-            await navigator.share({ files: [new File([blob], fname, { type: 'application/pdf' })], title: fname });
-            setStatus('✅ PDF siap — pilih Simpan / bagikan ke WhatsApp');
-          } catch (e) {
-            // user batalin share sheet -> jangan unduh paksa
-            if (e && e.name === 'AbortError') setStatus('Dibatalkan.');
-            else setStatus('📤 Mengirim…'), f.submit();
-          }
-          setTimeout(() => setStatus(''), 7000);
-          return;
-        }
-        // canShare bilang tidak bisa -> pakai jalur form biasa di bawah
-        setStatus('📤 Mengirim…');
-      } catch (e) {
-        // apa pun gagalnya, jatuh ke cara klasik (form submit)
-        setStatus('📤 Mengirim…');
-      }
+    // PREVIEW: buka PDF langsung di tab baru (viewer bawaan HP).
+    if (target === '/preview') {
+      f.action = target;
+      f.target = '_blank';
+      f.submit();
+      setTimeout(() => setStatus(''), 5000);
+      return;
     }
 
-    f.action = target;
-    f.target = newTab ? '_blank' : '_self';
-    f.submit();
-    setTimeout(() => setStatus(''), 5000);
+    // GENERATE: ambil PDF-nya dulu, baru tampilkan panel tombol Download/Bagikan/Buka.
+    // (Dulu PDF langsung "auto download" diam-diam -> user gak lihat tombol apa pun.)
+    setStatus('⏳ Membuat PDF…');
+    const resp = await fetch(target, { method: 'POST', body: new FormData(f) });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    if (blob.type.indexOf('pdf') === -1) throw new Error('respons bukan PDF');
+    let fname = 'Laporan-POB.pdf';
+    const mm = (resp.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/);
+    if (mm) fname = mm[1];
+    setStatus('');
+    tampilkanHasil(blob, fname);
   } catch (err) {
-    setStatus('❌ Gagal menyiapkan foto: ' + err.message);
+    // Ada apa pun yang gagal -> pakai cara klasik (form POST langsung).
+    setStatus('');
+    const f2 = document.getElementById('form-laporan');
+    f2.action = target;
+    f2.target = '_blank';
+    f2.submit();
   } finally {
     if (btnG) btnG.disabled = false;
   }
+}
+
+// ---------- Panel hasil (tombol Download / Bagikan / Buka) ----------
+let HASIL = { url: null, blob: null, name: '' };
+
+function tampilkanHasil(blob, name) {
+  if (HASIL.url) URL.revokeObjectURL(HASIL.url);
+  HASIL = { url: URL.createObjectURL(blob), blob: blob, name: name };
+
+  document.getElementById('hasil-file').textContent =
+    name + '  •  ' + Math.max(1, Math.round(blob.size / 1024)) + ' KB';
+
+  const dl = document.getElementById('hasil-download');
+  dl.href = HASIL.url;
+  dl.download = name;
+
+  document.getElementById('hasil-open').href = HASIL.url;
+
+  const sh = document.getElementById('hasil-share');
+  let bisaShare = false;
+  try {
+    bisaShare = !!(navigator.canShare &&
+      navigator.canShare({ files: [new File([blob], name, { type: 'application/pdf' })] }));
+  } catch (e) { bisaShare = false; }
+  sh.style.display = bisaShare ? '' : 'none';
+
+  const panel = document.getElementById('hasil-panel');
+  panel.style.display = 'block';
+  try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+}
+
+async function shareHasil() {
+  if (!HASIL.blob) return;
+  const file = new File([HASIL.blob], HASIL.name, { type: 'application/pdf' });
+  try {
+    await navigator.share({ files: [file], title: HASIL.name });
+    setStatus('✅ Terkirim / tersimpan.');
+  } catch (e) {
+    if (!e || e.name !== 'AbortError') setStatus('⚠️ Gagal bagikan — pakai ⬇️ Download atau 👁 Buka PDF.');
+  }
+  setTimeout(() => setStatus(''), 6000);
+}
+
+function tutupHasil() {
+  document.getElementById('hasil-panel').style.display = 'none';
+  if (HASIL.url) URL.revokeObjectURL(HASIL.url);
+  HASIL = { url: null, blob: null, name: '' };
 }
 
 function submitPreview() { submitFormTo('/preview', false); }

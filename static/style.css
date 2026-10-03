@@ -475,3 +475,30 @@ table.data { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch
 .sig-actions { display: flex; gap: 6px; }
 .btn-mini { min-height: 38px; font-size: 0.75rem; padding: 4px 10px; flex: 1 1 0; }
 .sig-upload { margin-top: 2px; }
+
+/* ============================================================
+   PANEL HASIL GENERATE (tombol Download / Bagikan / Buka)
+   ============================================================ */
+.hasil-panel {
+  max-width: 1200px;
+  margin: 0.75rem auto 0;
+  padding: 0.9rem 1rem;
+  background: #ecfdf5;
+  border: 1px solid #34d399;
+  border-left: 5px solid #059669;
+  border-radius: 10px;
+}
+.hasil-title { font-weight: 700; font-size: 0.95rem; color: #065f46; margin-bottom: 3px; }
+.hasil-file { font-size: 0.78rem; color: #047857; margin-bottom: 9px; word-break: break-all; }
+.hasil-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn-hasil {
+  flex: 1 1 40%;
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.hasil-tip { font-size: 0.72rem; color: #047857; margin-top: 9px; line-height: 1.45; }
