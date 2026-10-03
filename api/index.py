@@ -16,11 +16,11 @@ Source layout: LAPORAN HARIAN POB-JURU-PPA.xls
 
 import os
 import sys
-# Ensure reportlab/Pillow in user-local site-packages are importable on hosts
-# where PYTHONPATH might not be set (e.g. some sandboxed shells).
-_USER_SITE = '/home/ubuntu/.local/lib/python3.12/site-packages'
-if os.path.isdir(_USER_SITE) and _USER_SITE not in sys.path:
-    sys.path.insert(0, _USER_SITE)
+# Load user-local site-packages when available (for Vercel build compat)
+for sp in ('/home/ubuntu/.local/lib/python3.12/site-packages',
+          '/home/ubuntu/.local/lib/python3.11/site-packages'):
+    if os.path.isdir(sp) and sp not in sys.path:
+        sys.path.append(sp)
 
 import io
 import re
@@ -42,35 +42,30 @@ from reportlab.lib.utils import ImageReader
 class ImageStack(Flowable):
     """Flowable that renders N images side-by-side (or stacked) inside a cell.
 
-    Each image is drawn as a ReportLab Image with given size. We override
-    wrap() so the cell reserves proper height for ALL images. draw() draws
-    each image scaled to fit the cell width.
+    - Always renders within availWidth (cell width) for proper centering.
+    - Images preserve aspect ratio (uniform scale based on PIXEL dimensions).
+    - All images in same row get SAME height (h = max_h) for visual consistency.
     """
-    def __init__(self, images, max_w=4.5 * cm, max_h=3.0 * cm, gap=4, layout='horizontal'):
+    def __init__(self, images, max_w=4.4 * cm, max_h=3.0 * cm, gap=4, layout='horizontal'):
         Flowable.__init__(self)
         self.images = images or []
         self.max_w = max_w
         self.max_h = max_h
         self.gap = gap
         self.layout = layout  # 'horizontal' or 'vertical'
-        # Force each image's drawWidth/drawHeight for consistent sizing
-        for img in self.images:
-            try:
-                img.drawWidth = self.max_w
-                img.drawHeight = self.max_h
-            except Exception:
-                pass
 
     def wrap(self, availWidth, availHeight):
+        self._avail_w = availWidth
+        self._avail_h = availHeight
         n = max(len(self.images), 1)
         if self.layout == 'vertical':
-            per_h = self.max_h
-            total_h = n * per_h + (n - 1) * self.gap
-        else:  # horizontal: all images in single row, max_h tall
+            total_h = n * self.max_h + (n - 1) * self.gap
+        else:
             total_h = self.max_h
         if availHeight and total_h > availHeight:
             total_h = availHeight
-        return (self.max_w, total_h)
+        self._h = total_h
+        return (availWidth, total_h)
 
     def split(self, availWidth, availHeight):
         return []
@@ -80,55 +75,30 @@ class ImageStack(Flowable):
             return
         n = len(self.images)
         canvas = self.canv
-
+        cell_w = self._avail_w
+        cell_h = getattr(self, '_h', None) or self.max_h
         if self.layout == 'horizontal':
-            # All images side-by-side, scaled to fit total width
-            # Total available width = self.max_w, minus gaps
-            avail_w = self.width if self.width else self.max_w
-            per_w = (avail_w - (n - 1) * self.gap) / n
-            # height = self.height
-            x = 0
-            for img in self.images:
-                try:
-                    iw, ih = img.imageWidth, img.imageHeight
-                except Exception:
-                    iw, ih = per_w, self.height
-                # Scale to fit per_w x self.height
-                scale_w = per_w / iw
-                scale_h = self.height / ih
-                scale = min(scale_w, scale_h)
-                dw = iw * scale
-                dh = ih * scale
-                img_x = x + (per_w - dw) / 2
-                img_y = (self.height - dh) / 2
-                try:
-                    img.drawOn(canvas, img_x, img_y)
-                except Exception as e:
-                    import sys
-                    print(f'ImageStack.draw error: {e}', file=sys.stderr)
-                x += per_w + self.gap
+            slot_w = (cell_w - (n - 1) * self.gap) / n
+            slot_h = cell_h
         else:
-            # vertical layout
-            per_h = (self.height - (n - 1) * self.gap) / n
-            y = self.height
-            for img in self.images:
-                y -= per_h
-                try:
-                    iw, ih = img.imageWidth, img.imageHeight
-                except Exception:
-                    iw, ih = self.max_w, per_h
-                scale_w = self.max_w / iw
-                scale_h = per_h / ih
-                scale = min(scale_w, scale_h)
-                dw = iw * scale
-                dh = ih * scale
-                x = (self.max_w - dw) / 2
-                try:
-                    img.drawOn(canvas, x, y + (per_h - dh) / 2)
-                except Exception as e:
-                    import sys
-                    print(f'ImageStack.draw error: {e}', file=sys.stderr)
-                y -= self.gap
+            slot_w = cell_w
+            slot_h = (cell_h - (n - 1) * self.gap) / n
+        # FILL mode: stretch setiap image persis mengisi slot-nya
+        # (edge-to-edge, sesuai garis cell) — seperti formulir asli.
+        for i, img in enumerate(self.images):
+            if self.layout == 'horizontal':
+                img_x = i * (slot_w + self.gap)
+                img_y = 0
+            else:
+                img_x = 0
+                img_y = cell_h - (i + 1) * slot_h - i * self.gap
+            img.drawWidth = slot_w
+            img.drawHeight = slot_h
+            try:
+                img.drawOn(canvas, img_x, img_y)
+            except Exception as e:
+                import sys
+                print(f'ImageStack.draw error: {e}', file=sys.stderr)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 
@@ -170,10 +140,38 @@ def tgl_indonesia(date_str):
         return date_str
 
 
-def decode_images(file_list_files, max_px=900):
+def _process_image(raw_bytes, max_px=900):
+    """Decode + auto-rotate (EXIF) + resize image. Returns (buf, orig_w, orig_h)."""
+    from PIL import Image as PILImage, ImageOps
+    pil = PILImage.open(BytesIO(raw_bytes))
+    # Auto-rotate based on EXIF orientation tag (HP/smartphone photos)
+    pil = ImageOps.exif_transpose(pil)
+    # Resize (preserves aspect ratio)
+    pil.thumbnail((max_px, max_px))
+    # Convert mode
+    if pil.mode in ('RGBA', 'LA', 'P'):
+        pil = pil.convert('RGB')
+    orig_w, orig_h = pil.size
+    buf = BytesIO()
+    pil.save(buf, format='JPEG', quality=80, optimize=True)
+    buf.seek(0)
+    return buf, orig_w, orig_h
+
+
+# Default natural render size used by decode_images when no target given.
+# Matches sample PDF aspect (~1.45:1) and gives consistent visuals in PDF.
+DEFAULT_RW = 4.2 * cm
+DEFAULT_RH = 2.9 * cm
+
+
+def decode_images(file_list_files, max_px=900, target_w=None, target_h=None):
     """Decode list of uploaded files -> list of ReportLab Images.
-    Returns [] if empty. Each image is resized & compressed in-memory.
-    Each image gets a unique filename so ReportLab doesn't de-dup them.
+
+    - Auto-rotates via EXIF
+    - Resizes to max_px preserving aspect ratio
+    - target_w/target_h: explicit render size. If None, uses DEFAULT_RW/DEFAULT_RH
+      with aspect ratio adjustment.
+    Each image gets a unique filename so ReportLab doesn't de-dup.
     """
     images = []
     if not file_list_files:
@@ -185,23 +183,27 @@ def decode_images(file_list_files, max_px=900):
         if not raw:
             continue
         try:
-            from PIL import Image as PILImage
-            pil = PILImage.open(BytesIO(raw))
-            pil.thumbnail((max_px, max_px))
-            if pil.mode in ('RGBA', 'LA', 'P'):
-                pil = pil.convert('RGB')
-            buf = BytesIO()
-            pil.save(buf, format='JPEG', quality=80, optimize=True)
-            buf.seek(0)
-            # Unique filename per image to prevent ReportLab from de-duplicating
+            buf, iw, ih = _process_image(raw, max_px)
+            # Determine render size
+            if target_w is not None and target_h is not None:
+                rw, rh = target_w, target_h
+            else:
+                # Use DEFAULT_RW as max width, scale height by aspect
+                aspect = iw / ih if ih > 0 else 1.4
+                rw = DEFAULT_RW
+                rh = rw / aspect
+                # Cap height too
+                if rh > DEFAULT_RH:
+                    rh = DEFAULT_RH
+                    rw = rh * aspect
             unique_name = f'img_{idx}_{fs.filename}'
-            img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+            img = Image(buf, width=rw, height=rh)
             img.filename = unique_name
             images.append(img)
         except Exception:
             try:
                 buf = BytesIO(raw)
-                img = Image(buf, width=3.0 * cm, height=2.2 * cm)
+                img = Image(buf, width=DEFAULT_RW, height=DEFAULT_RH)
                 img.filename = f'img_{idx}.jpg'
                 images.append(img)
             except Exception:
@@ -209,13 +211,16 @@ def decode_images(file_list_files, max_px=900):
     return images
 
 
-def decode_image(file_storage, max_px=900):
+def decode_image(file_storage, max_px=900, target_w=None, target_h=None):
     """Single-file convenience wrapper."""
-    result = decode_images(file_storage if isinstance(file_storage, list) else [file_storage], max_px)
+    result = decode_images(
+        file_storage if isinstance(file_storage, list) else [file_storage],
+        max_px, target_w, target_h
+    )
     return result[0] if result else None
 
 
-def decode_b64(b64str, max_px=900):
+def decode_b64(b64str, max_px=900, target_w=None, target_h=None):
     """Decode base64 dataURL -> Image."""
     if not b64str:
         return None
@@ -223,32 +228,36 @@ def decode_b64(b64str, max_px=900):
         m = re.match(r'^data:image/[^;]+;base64,(.*)$', b64str)
         payload = m.group(1) if m else b64str
         raw = base64.b64decode(payload)
-        from PIL import Image as PILImage
-        pil = PILImage.open(BytesIO(raw))
-        pil.thumbnail((max_px, max_px))
-        if pil.mode in ('RGBA', 'LA', 'P'):
-            pil = pil.convert('RGB')
-        buf = BytesIO()
-        pil.save(buf, format='JPEG', quality=80, optimize=True)
-        buf.seek(0)
-        return Image(buf, width=3.0 * cm, height=2.2 * cm)
+        buf, iw, ih = _process_image(raw, max_px)
+        if target_w is not None and target_h is not None:
+            rw, rh = target_w, target_h
+        else:
+            aspect = iw / ih
+            if aspect > 1:
+                rw = 3.0 * cm
+                rh = rw / aspect
+            else:
+                rh = 3.0 * cm
+                rw = rh * aspect
+        return Image(buf, width=rw, height=rh)
     except Exception:
         return None
 
 
 # ----------------- PDF builder -----------------
 
-# Layout Letter landscape (792 x 612 pts = 28.0 x 21.6 cm) — matches sample from Excel
-PAGE_W, PAGE_H = landscape(letter)
-MARGIN = 0.4 * cm
-USABLE_W = PAGE_W - 2 * MARGIN  # ~27.2 cm
+# Layout A4 landscape (841.89 x 595.28 pts = 29.7 x 21.0 cm)
+# Sumber: file .xls asli -> BIFF SETUP record paper_size=9 (A4), flag landscape.
+PAGE_W, PAGE_H = landscape(A4)
+MARGIN = 0.55 * cm
+USABLE_W = PAGE_W - 2 * MARGIN  # ~28.6 cm
 
 
 def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas):
     """Build single Laporan PDF in memory -> BytesIO."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
-        buf, pagesize=landscape(letter),
+        buf, pagesize=landscape(A4),
         leftMargin=MARGIN, rightMargin=MARGIN,
         topMargin=MARGIN, bottomMargin=MARGIN,
         title="Laporan Harian POB/JURU/PPA",
@@ -269,11 +278,80 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     meta_style = ParagraphStyle(
         'Meta', parent=styles['Normal'],
         fontName='Helvetica', fontSize=8.5, leading=11, spaceAfter=2,
+        alignment=TA_CENTER,
+    )
+    cell_style = ParagraphStyle(
+        'Cell', parent=styles['Normal'],
+        fontName='Helvetica', fontSize=8, leading=10,
+        alignment=TA_CENTER,
     )
 
     story = []
 
-    # ---------- Header ----------
+    # ---------- Header Kementerian PU ----------
+    # Logo PU di kiri + 5 baris alamat di kanan + garis separator di bawah
+    pu_logo_path = os.path.join(PROJECT_DIR, 'static', 'assets', 'logo-pu.png')
+    pu_logo = None
+    if os.path.exists(pu_logo_path):
+        try:
+            pu_logo = Image(pu_logo_path, width=1.6 * cm, height=1.6 * cm)
+        except Exception:
+            pu_logo = None
+
+    pu_addr_style = ParagraphStyle(
+        'PuAddr', parent=styles['Normal'],
+        fontName='Helvetica-Bold', fontSize=8.5, leading=10.5, alignment=TA_LEFT,
+    )
+    pu_addr_top = ParagraphStyle(
+        'PuAddrTop', parent=pu_addr_style, fontSize=9.5,
+    )
+
+    pu_lines = [
+        Paragraph('KEMENTERIAN PEKERJAAN UMUM', pu_addr_top),
+        Paragraph('DIREKTORAT JENDERAL SUMBER DAYA AIR', pu_addr_style),
+        Paragraph('BALAI WILAYAH SUNGAI KALIMANTAN III BANJARMASIN', pu_addr_style),
+        Paragraph('SATUAN KERJA OPERASI DAN PEMELIHARAAN SUMBER DAYA AIR KALIMANTAN III', pu_addr_style),
+        Paragraph('Jl. Pemajatan KM. 1 Gambut 70652 Kab. Banjar Prov. Kalimantan Selatan, '
+                  'Telepon/Faksimili (0511) 6775967', ParagraphStyle(
+                      'PuAddrSm', parent=pu_addr_style, fontName='Helvetica', fontSize=7)),
+    ]
+
+    header_left = pu_logo if pu_logo else Paragraph('', pu_addr_style)
+    header_right_cells = [[line] for line in pu_lines]
+    header_right = Table(header_right_cells, colWidths=[USABLE_W - 1.9 * cm])
+    header_right.setStyle(TableStyle([
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+
+    header_row = Table(
+        [[header_left, header_right]],
+        colWidths=[1.9 * cm, USABLE_W - 1.9 * cm],
+    )
+    header_row.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_row)
+
+    # Garis separator hitam di bawah header PU
+    sep_table = Table([['']], colWidths=[USABLE_W], rowHeights=[0.05 * cm])
+    sep_table.setStyle(TableStyle([
+        ('LINEBELOW', (0, 0), (-1, -1), 1.4, colors.black),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(sep_table)
+    story.append(Spacer(1, 0.18 * cm))
+
+    # ---------- Judul Laporan ----------
     story.append(Paragraph("LAPORAN HARIAN KEGIATAN PEKERJAAN "
                           "PETUGAS OPERASI BENDUNG / JURU JARINGAN / PPA",
                           title_style))
@@ -300,70 +378,134 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     story.append(Spacer(1, 0.15 * cm))
 
     # ---------- TABEL 1 - PEMERIKSAAN PAGI ----------
-    # 11 cols total. Cols 8=TMA Pagi (text), 9=Selfi (image). Col 10 = filler merged into Selfi for extra width.
-    # Total ~27.0 cm to fit Letter landscape (27.2 cm usable)
+    # 10 cols total. Header group: Pagi (4 sub-cols), Dokumentasi (TMA Pagi + Selfi).
+    # Proporsi lebar kolom diambil dari lebar kolom .xls asli (col width /256 char),
+    # di-scale ke USABLE_W A4 landscape = 28.6 cm.
+    #   xls: No=1137, Hari=2929, Lokasi=5774, Jenis=5774, Waktu=2190, TMA=2218,
+    #        Status=2218, Cuaca=2190, TMA Pagi=3*2759, Selfi=3*2759
+    # Status dikasih sedikit ekstra (2.4cm) biar "Tidak Normal" gak ke-split jelek.
     col_widths_t1_cm = [
-        0.8,  # No
-        2.5,  # Hari/Tanggal
-        4.0,  # Lokasi
-        4.0,  # Jenis
-        1.5,  # Waktu
-        1.3,  # TMA
-        1.6,  # Status
-        1.4,  # Cuaca
-        3.5,  # TMA Pagi (text + optional photo)
-        2.5,  # Selfi (IMAGE)
-        4.0,  # filler (merged into Selfi body cells)
+        0.75,  # No
+        1.95,  # Hari/Tanggal
+        3.75,  # Titik Lokasi Pekerjaan
+        3.75,  # Jenis Pekerjaan
+        1.45,  # Waktu
+        1.50,  # TMA
+        2.40,  # Status
+        1.50,  # Cuaca
+        5.78,  # TMA Pagi (text + optional foto)
+        5.77,  # Selfi (foto)
     ]
+    # Sum = 28.60 cm = USABLE_W
     col_widths_t1 = [w * cm for w in col_widths_t1_cm]
 
-    # Header baris 1 - 11 cols
+    # Header baris 1 - 10 cols (Pagi + Dokumentasi merged)
+    # Header pakai Paragraph biar auto-wrap + center, gak nabrak cell sebelah
+    header_style = ParagraphStyle(
+        'Header', parent=cell_style,
+        fontName='Helvetica-Bold', fontSize=7.5, leading=9,
+        alignment=TA_CENTER,
+    )
     t1_header1 = [
-        'No.', 'Hari / Tanggal', 'Titik Lokasi Pekerjaan', 'Jenis Pekerjaan',
-        'Pagi', '', '', '',
-        'Dokumentasi', '', '',
+        Paragraph('No.', header_style),
+        Paragraph('Hari /<br/>Tanggal', header_style),
+        Paragraph('Titik Lokasi Pekerjaan', header_style),
+        Paragraph('Jenis Pekerjaan', header_style),
+        Paragraph('Pagi', header_style),
+        '', '', '',
+        Paragraph('Dokumentasi', header_style),
+        '',
     ]
     t1_header2 = [
         '', '', '', '',
-        'Waktu', 'TMA', 'Status', 'Cuaca',
-        'TMA Pagi', 'Selfi', '',
+        Paragraph('Waktu', header_style),
+        Paragraph('TMA', header_style),
+        Paragraph('Status', header_style),
+        Paragraph('Cuaca', header_style),
+        Paragraph('TMA Pagi', header_style),
+        Paragraph('Selfi', header_style),
     ]
+
+    # Helper: ensure Status text doesn't overflow cell by manual word wrap.
+    # ReportLab Paragraph uses XML for formatting; <br/> forces line break.
+    def wrap_status(text, max_len=10):
+        if not text or len(text) <= max_len:
+            return text
+        words = text.split()
+        lines, cur = [], ''
+        for w in words:
+            if len(cur) + len(w) + 1 > max_len and cur:
+                lines.append(cur)
+                cur = w
+            else:
+                cur = (cur + ' ' + w).strip()
+        if cur:
+            lines.append(cur)
+        # <br/> = explicit line break in ReportLab Paragraph XML
+        return '<br/>'.join(lines)
 
     t1_data = [t1_header1, t1_header2]
     for i, row in enumerate(pagi_rows, start=1):
         selfi_imgs = row.get('selfi_imgs') or []
-        # Each image gets max_h, stack vertically — up to 4 images fit in cell
-        selfi_cell = ImageStack(selfi_imgs[:4], max_w=8.5 * cm, max_h=2.2 * cm) if selfi_imgs else ''
-        # TMA Pagi: combine text + optional photo
+        # Selfi cell: 1-3 foto, side-by-side kalau <=2, stacked kalau 3+
+        # Selfi col = 4.4cm. Padding 2 left + 2 right = 4.0cm effective.
+        # 1 foto: max_w 4.0cm. 2 foto: per-image ~2.0cm. 3 foto stacked: 1.5cm each.
+        if selfi_imgs:
+            if len(selfi_imgs) == 1:
+                selfi_cell = ImageStack(selfi_imgs, max_w=4.0 * cm, max_h=3.2 * cm, layout='horizontal', gap=0)
+            elif len(selfi_imgs) == 2:
+                selfi_cell = ImageStack(selfi_imgs, max_w=2.0 * cm, max_h=3.2 * cm, layout='horizontal', gap=2)
+            else:
+                selfi_cell = ImageStack(selfi_imgs[:3], max_w=4.0 * cm, max_h=0.9 * cm, layout='vertical', gap=2)
+        else:
+            selfi_cell = ''
+        # TMA Pagi cell: text + optional 1 foto
         tma_pagi_text = str(row.get('tma_pagi', ''))
         tma_pagi_imgs = row.get('tma_pagi_imgs') or []
         if tma_pagi_imgs:
-            tma_pagi_cell = [
-                Paragraph(tma_pagi_text, meta_style) if tma_pagi_text else '',
-                ImageStack(tma_pagi_imgs[:2], max_w=3.2 * cm, max_h=2.0 * cm, layout='vertical')
-            ]
-            tma_pagi_rendered = tma_pagi_cell
+            tma_pagi_parts = []
+            if tma_pagi_text:
+                tma_pagi_parts.append(Paragraph(tma_pagi_text, cell_style))
+            # Foto tunggal, full cell width - padding
+            tma_pagi_parts.append(
+                ImageStack(tma_pagi_imgs[:1], max_w=4.8 * cm, max_h=3.2 * cm, layout='vertical', gap=4)
+            )
+            from reportlab.platypus import KeepInFrame
+            tma_pagi_rendered = KeepInFrame(
+                5.0 * cm, 3.2 * cm, tma_pagi_parts, mode='shrink'
+            )
         else:
-            tma_pagi_rendered = tma_pagi_text
+            tma_pagi_rendered = Paragraph(tma_pagi_text, cell_style) if tma_pagi_text else ''
+        status_text = wrap_status(str(row.get('status', '')))
         t1_data.append([
             str(i),
             str(row.get('hari_tanggal', '')),
-            Paragraph(str(row.get('lokasi', '')), meta_style),
-            Paragraph(str(row.get('jenis', '')), meta_style),
+            Paragraph(str(row.get('lokasi', '')), cell_style),
+            Paragraph(str(row.get('jenis', '')), cell_style),
             str(row.get('waktu', '')),
             str(row.get('tma', '')),
-            str(row.get('status', '')),
+            Paragraph(status_text, cell_style),  # Wrapped & centered
             str(row.get('cuaca', '')),
-            tma_pagi_rendered,              # TMA Pagi: text + optional photo
-            selfi_cell,                      # Selfi = 1+ images stacked
-            '',
+            tma_pagi_rendered,
+            selfi_cell,
         ])
 
-    # Pad rows to minimum 3 visible rows even if empty
+    # Pad ke minimum 3 baris body biar tetap kelihatan seperti formulir
     while len(t1_data) < 5:
-        t1_data.append([''] * 11)
+        t1_data.append([''] * 10)
 
-    t1 = Table(t1_data, colWidths=col_widths_t1, repeatRows=2)
+    # rowHeights: baris yang ada foto = 3.2cm (foto full cell), baris kosong = 0.85cm.
+    # Ini yang bikin output "sama seperti .xls" (xls cuma punya 1 baris data tinggi,
+    # bukan 5 baris kosong tinggi yang bikin boros & nggak muat 1 halaman).
+    t1_row_heights = [0.8 * cm, 0.8 * cm]
+    for r in range(2, len(t1_data)):
+        has_img = False
+        if r - 2 < len(pagi_rows):
+            _r = pagi_rows[r - 2]
+            has_img = bool(_r.get('selfi_imgs') or _r.get('tma_pagi_imgs'))
+        t1_row_heights.append(3.2 * cm if has_img else 0.85 * cm)
+
+    t1 = Table(t1_data, colWidths=col_widths_t1, rowHeights=t1_row_heights, repeatRows=2)
     t1.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
@@ -373,54 +515,72 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, 1), 'MIDDLE'),
         ('FONTSIZE', (0, 2), (-1, -1), 8),
-        ('ALIGN', (0, 2), (0, -1), 'CENTER'),
-        ('ALIGN', (4, 2), (8, -1), 'CENTER'),
-        ('VALIGN', (0, 2), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('MINROWHEIGHT', (0, 2), (-1, -1), 1.0 * cm),
-        ('MINROWHEIGHT', (9, 2), (10, -1), 9.0 * cm),  # Selfi col grows with images
+        ('ALIGN', (0, 2), (-1, -1), 'CENTER'),     # All body cells centered
+        ('VALIGN', (0, 2), (-1, -1), 'MIDDLE'),  # Text cols vertical center
+        ('LEFTPADDING', (0, 0), (-1, 4), 3),     # Text cols padding 3
+        ('RIGHTPADDING', (0, 0), (-1, 4), 3),
+        ('TOPPADDING', (0, 0), (-1, 4), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, 4), 3),
+        # Foto cols (8=TMA Pagi, 9=Selfi): padding 5 top/bottom = 0.18cm
+        # supaya image centered (row=3.2cm, image max=2.9cm, sisa 0.3cm = 0.15cm each)
+        # Foto cols (8=TMA Pagi, 9=Selfi): padding 0 biar image nempel ke garis cell
+        ('LEFTPADDING', (8, 0), (9, -1), 0),
+        ('RIGHTPADDING', (8, 0), (9, -1), 0),
+        ('TOPPADDING', (8, 0), (9, -1), 0),
+        ('BOTTOMPADDING', (8, 0), (9, -1), 0),
+        ('MINROWHEIGHT', (0, 2), (-1, -1), 0.85 * cm),  # baris kosong tetap punya tinggi minimum
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (1, 1)),
         ('SPAN', (2, 0), (2, 1)),
         ('SPAN', (3, 0), (3, 1)),
-        ('SPAN', (4, 0), (7, 0)),    # Pagi (4 cols)
-        ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (TMA Pagi + Selfi + filler)
-        # Body: merge filler (col 10) into Selfi (col 9) so image gets full width
-        ('SPAN', (9, 2), (10, -1)),
+        ('SPAN', (4, 0), (7, 0)),    # Pagi (4 cols: Waktu/TMA/Status/Cuaca)
+        ('SPAN', (8, 0), (9, 0)),    # Dokumentasi (TMA Pagi + Selfi)
     ]))
     story.append(t1)
     story.append(Spacer(1, 0.25 * cm))
 
     # ---------- TABEL 2 - KEGIATAN PEKERJAAN ----------
-    # 11 cols: No | Hari/Tgl | Lokasi | Jenis | Jam Mulai | Jam Akhir | Cuaca | Alat | Foto0 | Foto0.5 | Foto1
-    # Foto cols 4.4cm each (sample Excel: 4.8cm) — total 27.1cm fits Letter 27.2cm
+    # 11 cols, URUTAN PERSIS .xls:
+    #   No | Hari/Tgl | Titik Lokasi | Jenis | Jam Mulai | Jam Akhir | Alat | Cuaca |
+    #   Dokumentasi{0% , 50% , 100%}
+    # (Catatan: versi lama salah urut — Cuaca sebelum Alat; .xls = Alat dulu baru Cuaca.)
+    # Lebar diambil dari proporsi kolom .xls, di-scale ke USABLE_W = 28.6 cm.
     col_widths_t2_cm = [
-        0.6,  # No
-        1.7,  # Hari/Tanggal
-        3.0,  # Lokasi
-        3.0,  # Jenis
-        1.2,  # Jam Mulai
-        1.2,  # Jam Akhir
-        1.2,  # Cuaca
-        2.0,  # Alat
-        4.4,  # Foto 0
-        4.4,  # Foto 0.5
-        4.4,  # Foto 1
+        0.75,  # No
+        1.95,  # Hari/Tanggal
+        3.80,  # Titik Lokasi Pekerjaan
+        3.80,  # Jenis Pekerjaan
+        1.45,  # Jam Mulai
+        1.47,  # Jam Akhir
+        2.90,  # Alat yang Digunakan
+        1.50,  # Cuaca
+        3.66,  # Dokumentasi 0%
+        3.66,  # Dokumentasi 50%
+        3.66,  # Dokumentasi 100%
     ]
+    # Sum = 28.60 cm = USABLE_W
     col_widths_t2 = [w * cm for w in col_widths_t2_cm]
 
     t2_header1 = [
-        'No.', 'Hari / Tanggal', 'Titik Lokasi Pekerjaan', 'Jenis Pekerjaan',
-        'Jam', '', 'Cuaca', 'Alat yang Digunakan',
-        'Dokumentasi', '', '',
+        Paragraph('No.', header_style),
+        Paragraph('Hari /<br/>Tanggal', header_style),
+        Paragraph('Titik Lokasi Pekerjaan', header_style),
+        Paragraph('Jenis Pekerjaan', header_style),
+        Paragraph('Jam', header_style),
+        '',
+        Paragraph('Alat yang<br/>Digunakan', header_style),
+        Paragraph('Cuaca', header_style),
+        Paragraph('Dokumentasi', header_style),
+        '', '',
     ]
     t2_header2 = [
         '', '', '', '',
-        'Mulai', 'Akhir', '', '',
-        'Foto 0', 'Foto 0.5', 'Foto 1',
+        Paragraph('Mulai', header_style),
+        Paragraph('Akhir', header_style),
+        '', '',
+        Paragraph('0%', header_style),
+        Paragraph('50%', header_style),
+        Paragraph('100%', header_style),
     ]
 
     t2_data = [t2_header1, t2_header2]
@@ -431,21 +591,32 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         t2_data.append([
             str(i),
             str(row.get('hari_tanggal', '')),
-            Paragraph(str(row.get('lokasi', '')), meta_style),
-            Paragraph(str(row.get('jenis', '')), meta_style),
+            Paragraph(str(row.get('lokasi', '')), cell_style),
+            Paragraph(str(row.get('jenis', '')), cell_style),
             str(row.get('jam_mulai', '')),
             str(row.get('jam_akhir', '')),
+            Paragraph(str(row.get('alat', '')), cell_style),   # Alat (sebelum Cuaca, sesuai .xls)
             str(row.get('cuaca', '')),
-            Paragraph(str(row.get('alat', '')), meta_style),
-            ImageStack(f0, max_w=4.2 * cm, max_h=2.9 * cm) if f0 else '',
-            ImageStack(f05, max_w=4.2 * cm, max_h=2.9 * cm) if f05 else '',
-            ImageStack(f1, max_w=4.2 * cm, max_h=2.9 * cm) if f1 else '',
+            # Dokumentasi 0% / 50% / 100%. Cell ~3.66cm, padding 0 -> image full cell.
+            ImageStack(f0, max_w=3.6 * cm, max_h=3.2 * cm) if f0 else '',
+            ImageStack(f05, max_w=3.6 * cm, max_h=3.2 * cm) if f05 else '',
+            ImageStack(f1, max_w=3.6 * cm, max_h=3.2 * cm) if f1 else '',
         ])
 
+    # Pad ke minimum 3 baris body
     while len(t2_data) < 5:
         t2_data.append([''] * 11)
 
-    t2 = Table(t2_data, colWidths=col_widths_t2, repeatRows=2)
+    # rowHeights: baris berisi foto = 3.2cm, baris kosong = 0.85cm
+    t2_row_heights = [0.8 * cm, 0.8 * cm]
+    for r in range(2, len(t2_data)):
+        has_img = False
+        if r - 2 < len(kerja_rows):
+            _k = kerja_rows[r - 2]
+            has_img = bool(_k.get('foto0_imgs') or _k.get('foto05_imgs') or _k.get('foto1_imgs'))
+        t2_row_heights.append(3.2 * cm if has_img else 0.85 * cm)
+
+    t2 = Table(t2_data, colWidths=col_widths_t2, rowHeights=t2_row_heights, repeatRows=2)
     t2.setStyle(TableStyle([
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
@@ -455,28 +626,35 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
         ('ALIGN', (0, 0), (-1, 1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, 1), 'MIDDLE'),
         ('FONTSIZE', (0, 2), (-1, -1), 8),
-        ('ALIGN', (0, 2), (0, -1), 'CENTER'),
-        ('ALIGN', (4, 2), (6, -1), 'CENTER'),
-        ('VALIGN', (0, 2), (-1, -1), 'MIDDLE'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 2),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('MINROWHEIGHT', (0, 2), (-1, -1), 1.6 * cm),
+        ('ALIGN', (0, 2), (-1, -1), 'CENTER'),     # All body cells centered
+        ('VALIGN', (0, 2), (-1, 7), 'MIDDLE'),  # Text cols (0-7, sudah termasuk Alat+Cuaca)
+        ('LEFTPADDING', (0, 0), (-1, 7), 3),
+        ('RIGHTPADDING', (0, 0), (-1, 7), 3),
+        ('TOPPADDING', (0, 0), (-1, 7), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, 7), 3),
+        # Foto cols (8=0%, 9=50%, 10=100%): padding 0 biar image nempel ke garis cell
+        ('LEFTPADDING', (8, 0), (10, -1), 0),
+        ('RIGHTPADDING', (8, 0), (10, -1), 0),
+        ('TOPPADDING', (8, 0), (10, -1), 0),
+        ('BOTTOMPADDING', (8, 0), (10, -1), 0),
+        ('MINROWHEIGHT', (0, 2), (-1, -1), 0.85 * cm),  # baris kosong tetap punya tinggi minimum
         ('SPAN', (0, 0), (0, 1)),
         ('SPAN', (1, 0), (1, 1)),
         ('SPAN', (2, 0), (2, 1)),
         ('SPAN', (3, 0), (3, 1)),
         ('SPAN', (4, 0), (5, 0)),    # Jam (Mulai+Akhir)
-        ('SPAN', (6, 0), (6, 1)),    # Cuaca
-        ('SPAN', (7, 0), (7, 1)),    # Alat
-        ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (3 foto cols)
+        ('SPAN', (6, 0), (6, 1)),    # Alat yang Digunakan
+        ('SPAN', (7, 0), (7, 1)),    # Cuaca
+        ('SPAN', (8, 0), (10, 0)),   # Dokumentasi (0% / 50% / 100%)
     ]))
     story.append(t2)
     story.append(Spacer(1, 0.35 * cm))
 
     # ---------- TTD ----------
-    ttd_data = [[
+    # Blok tanda tangan persis .xls: "Mengetahui : / Pengamat DI. Riam Kanan" (kiri),
+    # "Dibuat oleh : / <label petugas>" (kanan), lalu nama (bold+underline).
+    # Baris NIP hanya muncul kalau memang diisi (di .xls asli tidak ada baris NIP).
+    ttd_rows = [[
         Paragraph("<b>Mengetahui :</b><br/>Pengamat DI. Riam Kanan", meta_style),
         Paragraph("<b>Dibuat oleh :</b><br/>" + str(meta.get('petugas_label', 'Petugas')), meta_style),
     ], [
@@ -485,12 +663,17 @@ def build_pdf(meta, pagi_rows, kerja_rows, signature_pengamat, signature_petugas
     ], [
         Paragraph("<b><u>" + str(meta.get('pengamat', 'AKHMAD MUHAZIR')).upper() + "</u></b>", meta_style),
         Paragraph("<b><u>" + str(meta.get('nama', '.........................')).upper() + "</u></b>", meta_style),
-    ], [
-        Paragraph("NIP. " + str(meta.get('pengamat_nip', '.................................')), meta_style),
-        Paragraph("NIP. " + str(meta.get('petugas_nip', '.................................')), meta_style),
     ]]
+    _nip_pengamat = str(meta.get('pengamat_nip', '') or '').strip()
+    _nip_petugas = str(meta.get('petugas_nip', '') or '').strip()
+    if _nip_pengamat or _nip_petugas:
+        ttd_rows.append([
+            Paragraph("NIP. " + _nip_pengamat, meta_style) if _nip_pengamat else Paragraph('', meta_style),
+            Paragraph("NIP. " + _nip_petugas, meta_style) if _nip_petugas else Paragraph('', meta_style),
+        ])
+    ttd_data = ttd_rows
 
-    ttd = Table(ttd_data, colWidths=[14 * cm, 14 * cm])
+    ttd = Table(ttd_data, colWidths=[14.3 * cm, 14.3 * cm])
     ttd.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
