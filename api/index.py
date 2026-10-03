@@ -857,27 +857,27 @@ def _render_pdf(base_date):
     return build_pdf(meta, pagi, kerja, sig_pengamat, sig_petugas)
 
 
-def _nama_petugas_untuk_file() -> str:
-    """Nama petugas yang sudah dibersihkan, buat dipakai di nama berkas PDF.
+def _bersih_untuk_file(teks, maks: int = 60) -> str:
+    """Bersihkan teks supaya aman dipakai di nama berkas.
 
     Nama berkas nggak boleh mengandung \\ / : * ? " < > | dan karakter kontrol;
     koma juga diganti spasi biar rapi ("Muhammad Andri, S.Pd" -> "Muhammad Andri
-    S.Pd"). Dipotong 60 karakter biar nama berkasnya nggak kepanjangan.
+    S.Pd"). Dipotong `maks` karakter biar nama berkasnya nggak kepanjangan.
     """
-    nama = (request.form.get('nama') or '').strip()
-    if not nama:
+    teks = (teks or '').strip()
+    if not teks:
         return ''
-    nama = re.sub(r'[\\/:*?"<>|\r\n\t]+', ' ', nama)
-    nama = nama.replace(',', ' ').replace(';', ' ')
-    nama = re.sub(r'\s+', ' ', nama).strip(' .-_')
-    return nama[:60].strip()
+    teks = re.sub(r'[\\/:*?"<>|\r\n\t]+', ' ', teks)
+    teks = teks.replace(',', ' ').replace(';', ' ')
+    teks = re.sub(r'\s+', ' ', teks).strip(' .-_')
+    return teks[:maks].strip()
 
 
 def _nama_file_pdf(base_iso: str) -> str:
-    """Nama berkas PDF: 'Laporan Harian <Nama> <DD-MM-YYYY>.pdf'.
+    """Nama berkas PDF: 'Laporan Harian <Nama> <Jabatan> <DD-MM-YYYY>.pdf'.
 
-    Contoh: 'Laporan Harian Muhammad Andri S.Pd 03-10-2026.pdf'
-    Kalau nama petugas kosong, bagian nama dilewati.
+    Contoh: 'Laporan Harian Muhammad Andri S.Pd PPA 03-10-2026.pdf'
+    Bagian nama / jabatan dilewati kalau field-nya kosong.
     """
     tgl = base_iso
     try:
@@ -886,9 +886,12 @@ def _nama_file_pdf(base_iso: str) -> str:
     except (ValueError, AttributeError):
         pass
     bagian = ['Laporan Harian']
-    nama = _nama_petugas_untuk_file()
+    nama = _bersih_untuk_file(request.form.get('nama'))
+    jabatan = _bersih_untuk_file(request.form.get('jabatan'), 30)
     if nama:
         bagian.append(nama)
+    if jabatan:
+        bagian.append(jabatan)
     bagian.append(tgl)
     return ' '.join(bagian) + '.pdf'
 

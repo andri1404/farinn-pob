@@ -124,6 +124,10 @@
         NIP Petugas
         <input type="text" name="petugas_nip" value="" placeholder="NIP. ........................">
       </label>
+      <label>
+        Jabatan / Peran <span class="hint-inline" style="display:inline">(buat nama berkas PDF)</span>
+        <div class="pilih-cust" data-nama="jabatan" data-jenis="jabatan"></div>
+      </label>
     </div>
   </section>
 
@@ -493,15 +497,20 @@ const JENIS_PILIHAN = ['Cek Level Air dan Bangunan',
                        'Pemeriksaan rutin', 'Pembersihan sampah', 'Pembersihan rumput',
                        'Pengukuran TMA', 'Pelumasan pintu', 'Perbaikan pintu',
                        'Pengecatan', 'Pemangkasan pohon'];
+const JABATAN_PILIHAN = ['PPA', 'Staff', 'Juru Jaringan', 'Juru Pintu Air'];
 const CUSTOM = '__custom__';
+
+// daftar + label per jenis dropdown "pilih atau ketik sendiri"
+const PILIHAN = { lokasi: LOKASI_PILIHAN, jenis: JENIS_PILIHAN, jabatan: JABATAN_PILIHAN };
+const LABEL_PILIHAN = { lokasi: 'Lokasi', jenis: 'Jenis pekerjaan', jabatan: 'Jabatan' };
 
 function opsiDari(daftar) {
   return daftar.map(v => '<option value="' + v + '">' + v + '</option>').join('');
 }
 
 function pilihCustHTML(nama, jenis) {
-  const daftar = (jenis === 'lokasi') ? LOKASI_PILIHAN : JENIS_PILIHAN;
-  const label = (jenis === 'lokasi') ? 'Lokasi' : 'Jenis pekerjaan';
+  const daftar = PILIHAN[jenis] || [];
+  const label = LABEL_PILIHAN[jenis] || 'Pilihan';
   return '<div class="pilih-cust" data-nama="' + nama + '" data-jenis="' + jenis + '">' +
     '<select class="pc-sel" aria-label="' + label + '">' +
       '<option value="">— pilih —</option>' + opsiDari(daftar) +
