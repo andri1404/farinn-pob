@@ -46,6 +46,18 @@
 
 <div id="inapp-tip" style="display:none"></div>
 
+<!-- Draf tersimpan: muncul kalau ada isian yang belum dikirim -->
+<div id="draf-banner" class="draf-banner" style="display:none">
+  <div class="draf-banner-teks">
+    💾 <strong>Ada draf tersimpan</strong>
+    <span id="draf-kapan"></span>
+  </div>
+  <div class="draf-banner-aksi">
+    <button type="button" class="btn-primary btn-mini" onclick="lanjutkanDraf()">Lanjutkan isi</button>
+    <button type="button" class="btn-ghost btn-mini" onclick="buangDraf()">Mulai baru</button>
+  </div>
+</div>
+
 <div class="info-banner">
   ✏️ <strong>Semua field bisa diedit</strong> — tinggal klik dan ketik ulang. Default di bawah cuma contoh dari Excel, silakan timpa.
 </div>
@@ -314,6 +326,8 @@
   </section>
 
   <!-- ============== ACTION ============== -->
+  <div id="draf-info" class="draf-info"></div>
+
   <div class="action-bar">
     <button type="button" class="btn-ghost" onclick="resetForm()">🗑 Reset Form</button>
     <button type="button" class="btn-secondary" onclick="submitPreview()">👁 Preview</button>
@@ -977,6 +991,142 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// ============================================================
+// DRAF OTOMATIS
+// Biar isian nggak hilang kalau HP-nya ketutup, layar mati, atau user pindah
+// aplikasi (kejadian banget di kerja lapangan). Disimpan di localStorage.
+// Catatan: FOTO tidak ikut tersimpan (localStorage cuma bisa teks) — kalau
+// halaman ditutup, foto perlu dipilih ulang. Semua tulisan tetap aman.
+// ============================================================
+const DRAF_KEY = 'laporanppa.draf.v1';
+
+function esc(s) {
+  return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&');
+}
+
+function kumpulkanDraf() {
+  const f = document.getElementById('form-laporan');
+  const nilai = {};
+  f.querySelectorAll('input[name], select[name], textarea[name]').forEach(el => {
+    if (el.type === 'file') return;                    // foto nggak bisa disimpan
+    if (el.type === 'radio' || el.type === 'checkbox') {
+      if (!el.checked) return;
+    }
+    nilai[el.name] = el.value;
+  });
+  return {
+    waktu: Date.now(),
+    kerjaRows: document.querySelectorAll('#tbody-kerja tr.row-kerja').length,
+    nilai: nilai
+  };
+}
+
+function adaIsi(d) {
+  if (!d || !d.nilai) return false;
+  if ((d.kerjaRows || 1) > 1) return true;
+  // abaikan field yang memang default dari server
+  const lewat = new Set(['nama', 'unit', 'label_petugas', 'pengamat',
+                         'tgl_d', 'tgl_m', 'tgl_y']);
+  return Object.entries(d.nilai).some(([k, v]) =>
+    !lewat.has(k) && String(v || '').trim() !== '');
+}
+
+function jamSekarang() {
+  const d = new Date();
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+function tulisStatusDraf(teks) {
+  const el = document.getElementById('draf-info');
+  if (el) el.textContent = teks || '';
+}
+
+function simpanDraf() {
+  try {
+    localStorage.setItem(DRAF_KEY, JSON.stringify(kumpulkanDraf()));
+    tulisStatusDraf('💾 Draf tersimpan otomatis ' + jamSekarang() +
+                    ' — foto perlu dipilih ulang kalau halaman ditutup.');
+  } catch (e) {
+    tulisStatusDraf('⚠️ Draf tidak bisa disimpan (penyimpanan browser penuh/dimatikan).');
+  }
+}
+
+let drafTimer = null;
+function jadwalkanSimpanDraf() {
+  clearTimeout(drafTimer);
+  drafTimer = setTimeout(simpanDraf, 1200);
+}
+
+function bacaDraf() {
+  try {
+    const raw = localStorage.getItem(DRAF_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+function pulihkanDraf(d) {
+  if (!d) return false;
+  // tambahkan baris Tabel 2 dulu kalau draf punya lebih banyak baris
+  const ada = document.querySelectorAll('#tbody-kerja tr.row-kerja').length;
+  const perlu = Math.max(0, (d.kerjaRows || 1) - ada);
+  for (let i = 0; i < perlu; i++) document.getElementById('btn-add-kerja').click();
+
+  Object.entries(d.nilai || {}).forEach(([name, val]) => {
+    const el = document.querySelector('[name="' + esc(name) + '"]');
+    if (el && el.type !== 'file') el.value = val;
+  });
+
+  // dropdown jam dipulihkan dari nilai teks "07:30"
+  document.querySelectorAll('.time-pick').forEach(w => {
+    const v = w.querySelector('.tp-val');
+    setTimePick(w, v ? v.value : '');
+  });
+
+  isiTimePickers();
+  syncTanggal();
+  return true;
+}
+
+function lanjutkanDraf() {
+  const d = bacaDraf();
+  if (pulihkanDraf(d)) {
+    document.getElementById('draf-banner').style.display = 'none';
+    tulisStatusDraf('✅ Draf dipulihkan. Jangan lupa pilih ulang fotonya.');
+  }
+}
+
+function buangDraf() {
+  document.getElementById('draf-banner').style.display = 'none';
+  resetForm();                       // resetForm() sekaligus menghapus draf
+  tulisStatusDraf('🗑 Draf dihapus — form dikosongkan.');
+}
+
+// tampilkan banner kalau ada draf yang isinya berarti
+(function cekDraf() {
+  const d = bacaDraf();
+  if (!adaIsi(d)) return;
+  const el = document.getElementById('draf-banner');
+  if (!el) return;
+  const kapan = document.getElementById('draf-kapan');
+  if (kapan && d.waktu) {
+    const t = new Date(d.waktu);
+    kapan.textContent = '— ' + pad2(t.getDate()) + '/' + pad2(t.getMonth() + 1) + '/' +
+                        t.getFullYear() + ' ' + pad2(t.getHours()) + ':' + pad2(t.getMinutes());
+  }
+  el.style.display = 'flex';
+})();
+
+// simpan otomatis saat mengetik / mengganti pilihan
+document.addEventListener('input', jadwalkanSimpanDraf);
+document.addEventListener('change', jadwalkanSimpanDraf);
+
+// paling penting di HP: simpan pas aplikasi ditinggal / layar dikunci
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { clearTimeout(drafTimer); simpanDraf(); }
+});
+window.addEventListener('pagehide', () => { clearTimeout(drafTimer); simpanDraf(); });
+
 // Siapkan dropdown jam + opsi datalist (Lokasi / Pekerjaan / Alat).
 isiTimePickers();
 
@@ -1025,6 +1175,9 @@ function resetForm() {
   bindPreviewListeners();
   // Kosongkan semua dropdown jam setelah reset
   document.querySelectorAll('.time-pick').forEach(w => setTimePick(w, ''));
+  // Reset berarti mulai baru -> draf tersimpan ikut dibuang
+  try { localStorage.removeItem(DRAF_KEY); } catch (e) {}
+  tulisStatusDraf('');
 }
 </script>
 

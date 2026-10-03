@@ -670,6 +670,47 @@ input.inp-tanggal { min-width: 106px; }
   color: #146c43;
 }
 
+/* ============================ DRAF OTOMATIS ============================ */
+
+.draf-banner {
+  max-width: 1100px;
+  margin: 14px auto 0;
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  background: #e7f1ff;
+  border: 1px solid #b6d4fe;
+  border-left: 5px solid var(--bs-primary);
+  border-radius: var(--radius-card);
+}
+
+.draf-banner-teks { font-size: 14px; color: var(--bs-primary-text); }
+.draf-banner-teks span { font-size: 12px; color: var(--bs-muted); }
+
+.draf-banner-aksi { display: flex; flex-wrap: wrap; gap: 8px; }
+.draf-banner-aksi button { flex: 0 0 auto; }
+
+.draf-info {
+  max-width: 1100px;
+  margin: 10px auto 0;
+  padding: 0 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--bs-muted);
+}
+.draf-info:empty { display: none; }
+
+@media (max-width: 820px) {
+  .draf-banner { margin-left: 12px; margin-right: 12px; }
+  .draf-banner-aksi { width: 100%; }
+  .draf-banner-aksi button { flex: 1 1 0; }
+  .draf-info { padding: 0 12px; }
+}
+
 /* ============================ FOOTER ============================ */
 
 footer {
