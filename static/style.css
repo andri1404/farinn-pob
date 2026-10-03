@@ -386,13 +386,19 @@ a, button, label, select, input, .btn-upload, .btn-primary, .btn-secondary, .btn
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Tombol & select minimal 44px (standar tap target Android) */
+/* Tombol minimal 44px (standar tap target Android) */
 button, .btn-primary, .btn-secondary, .btn-ghost, .btn-upload {
   min-height: 44px;
 }
-select, input[type="text"], input[type="date"], input[type="time"], input.inp-jam, input.inp-tanggal {
+
+/* Input minimal 16px supaya HP TIDAK auto-zoom pas difokus.
+   "table.data input/select" dipakai karena rule lama di atas lebih spesifik —
+   selector yang sama + posisi lebih bawah = menang. */
+table.data input, table.data select,
+select, input[type="text"], input[type="date"], input[type="time"],
+input.inp-jam, input.inp-tanggal {
   min-height: 40px;
-  font-size: 16px;   /* >=16px biar Android/iOS gak auto-zoom pas difokus */
+  font-size: 16px;
 }
 input.inp-jam { min-width: 76px; letter-spacing: 0.02em; }
 
