@@ -824,7 +824,7 @@ a, button, label, select, input,
 
   /* isi sel selebar kartu */
   table.data tbody td > * { flex: 0 0 auto; width: 100%; min-width: 0; margin-top: 0; }
-  table.data tbody td > .hidden-file { flex: 0 0 0; }
+  table.data tbody td > .hidden-file { flex: 0 0 0; width: 0; height: 0; }
   table.data tbody td > button.btn-remove { flex: 0 0 auto; width: auto; }
   table.data tbody td .preview-img { flex: 1 1 auto; min-width: 0; }
 
@@ -847,8 +847,11 @@ a, button, label, select, input,
     color: var(--bs-muted);
   }
 
-  /* input di dalam kartu: biar tidak mepet */
-  table.data input,
+  /* input di dalam kartu: biar tidak mepet.
+     .hidden-file WAJIB dikecualikan: input file tersembunyi tidak boleh ikut
+     dilebarkan 100%, kalau ikut dia meluber ke luar layar (ketahuan dari uji:
+     lebar halaman jadi 428px padahal layar 390px). */
+  table.data input:not(.hidden-file),
   table.data select { width: 100%; }
 
   /* target sentuh min 44px */
