@@ -3,10 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <title>Laporan Harian Riam Kanan</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="description" content="Form laporan harian Petugas Operasi Bendung / Juru Jaringan / PPA — DI Riam Kanan. Isi di HP, langsung jadi PDF.">
+  <!-- Biar bisa dipasang jadi "aplikasi" di home screen Android -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Laporan PPA">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{{ url_for('static', filename='icon-192.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+
+<div id="inapp-tip" style="display:none"></div>
 
 <header>
   <h1>📋 Laporan Harian Riam Kanan</h1>
@@ -71,6 +84,7 @@
   <section class="card">
     <h2>2. Tabel 1 — Pemeriksaan Pagi</h2>
     <p class="hint">Pemeriksaan rutin pagi hari: lokasi, jenis pekerjaan, waktu, TMA, status, cuaca, foto TMA pagi, dan foto selfie.</p>
+    <p class="table-scroll-hint">↔ Geser tabel ke samping untuk lihat kolom lainnya</p>
     <table class="data" id="tbl-pagi">
       <thead>
         <tr>
@@ -93,7 +107,7 @@
           <td><input type="text" class="inp-tanggal" name="pagi-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
           <td><input type="text" name="pagi-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="pagi-{{ i }}-jenis" placeholder="Pemeriksaan rutin"></td>
-          <td><input type="time" name="pagi-{{ i }}-waktu"></td>
+          <td><input type="text" class="inp-jam" name="pagi-{{ i }}-waktu" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
           <td><input type="text" name="pagi-{{ i }}-tma" placeholder="cm"></td>
           <td>
             <select name="pagi-{{ i }}-status">
@@ -134,6 +148,7 @@
   <section class="card">
     <h2>3. Tabel 2 — Kegiatan Pekerjaan <button type="button" class="btn-add" id="btn-add-kerja">+ Tambah Baris</button></h2>
     <p class="hint">Jam Mulai/Akhir, alat yang dipakai, cuaca, dan dokumentasi foto (progress 0% → 50% → 100%). Tambah baris lewat tombol hijau.</p>
+    <p class="table-scroll-hint">↔ Geser tabel ke samping untuk lihat kolom lainnya</p>
     <table class="data" id="tbl-kerja">
       <thead>
         <tr>
@@ -157,8 +172,8 @@
           <td><input type="text" class="inp-tanggal" name="kerja-{{ i }}-hari_tanggal" placeholder="03/10/2026"></td>
           <td><input type="text" name="kerja-{{ i }}-lokasi" placeholder="Contoh: BGT. 8"></td>
           <td><input type="text" name="kerja-{{ i }}-jenis" placeholder="Pembersihan"></td>
-          <td><input type="time" name="kerja-{{ i }}-jam_mulai"></td>
-          <td><input type="time" name="kerja-{{ i }}-jam_akhir"></td>
+          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
+          <td><input type="text" class="inp-jam" name="kerja-{{ i }}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 08:00"></td>
           <td><input type="text" name="kerja-{{ i }}-alat" placeholder="Cangkul, Sabit, dll"></td>
           <td>
             <select name="kerja-{{ i }}-cuaca">
@@ -307,11 +322,52 @@ function syncTanggal() {
   syncTanggal();
 })();
 
+// --- Input jam pakai teks + keyboard angka (bukan <input type="time">) ---
+// Sama alasannya kayak tanggal: picker native nggak jalan di sebagian WebView HP.
+function maskJam(el) {
+  const v = (el.value || '').replace(/[^0-9]/g, '').slice(0, 4);
+  el.value = v.length >= 3 ? v.slice(0, 2) + ':' + v.slice(2) : v;
+}
+function normalizeJam(el) {
+  const m = (el.value || '').trim().match(/^(\d{1,2})\s*[:.,]?\s*(\d{0,2})$/);
+  if (!m) return;
+  const h = parseInt(m[1] || '0', 10);
+  const mi = parseInt(m[2] || '0', 10);
+  if (isNaN(h) || isNaN(mi) || h > 23 || mi > 59) return;
+  el.value = pad2(h) + ':' + pad2(mi);
+}
+
 // Kalau user ngetik sendiri di kolom Hari/Tanggal, tandai biar nggak ditimpa otomatis.
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t && t.classList && t.classList.contains('inp-tanggal')) t.dataset.auto = '0';
+  if (!t || !t.classList) return;
+  if (t.classList.contains('inp-tanggal')) t.dataset.auto = '0';
+  if (t.classList.contains('inp-jam')) maskJam(t);
 });
+// blur nggak nge-bubble, jadi pakai capture
+document.addEventListener('blur', e => {
+  const t = e.target;
+  if (t && t.classList && t.classList.contains('inp-jam')) normalizeJam(t);
+}, true);
+
+// --- Deteksi browser dalam aplikasi (Telegram / WhatsApp / FB / IG) ---
+// Di WebView itu, tombol download PDF kadang nggak jalan. Kasih arahan.
+(function inAppTip() {
+  const ua = navigator.userAgent || '';
+  const inApp = /FBAN|FBAV|Instagram|Line\/|WhatsApp|Telegram|Twitter|MicroMessenger/i.test(ua) ||
+                (/Android/i.test(ua) && /; wv\)/i.test(ua));
+  if (!inApp) return;
+  const el = document.getElementById('inapp-tip');
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = '📱 Kamu buka di dalam aplikasi. Kalau PDF nggak mau kebuka / kedownload, ' +
+                 'tekan <b>⋯</b> atau <b>⋮</b> di kanan atas → pilih <b>“Buka di Chrome”</b> / ' +
+                 '<b>“Open in browser”</b>.';
+})();
+
+// --- Simpan / unduh PDF ---
+// Jalur utama: form POST (browser Android nangkep Content-Disposition: attachment).
+// Kalau HP dukung Web Share berkas, submitFormTo() malah nawarin "Bagikan/Simpan".
 
 function buildKerjaRow(idx) {
   return `
@@ -320,8 +376,8 @@ function buildKerjaRow(idx) {
       <td><input type="text" class="inp-tanggal" name="kerja-${idx}-hari_tanggal" placeholder="03/10/2026"></td>
       <td><input type="text" name="kerja-${idx}-lokasi" placeholder="Contoh: BGT. 8"></td>
       <td><input type="text" name="kerja-${idx}-jenis" placeholder="Pembersihan"></td>
-      <td><input type="time" name="kerja-${idx}-jam_mulai"></td>
-      <td><input type="time" name="kerja-${idx}-jam_akhir"></td>
+      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_mulai" inputmode="numeric" placeholder="07:30" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 07:30"></td>
+      <td><input type="text" class="inp-jam" name="kerja-${idx}-jam_akhir" inputmode="numeric" placeholder="08:00" maxlength="5" autocomplete="off" title="Format 24 jam, contoh 08:00"></td>
       <td><input type="text" name="kerja-${idx}-alat" placeholder="Cangkul, Sabit, dll"></td>
       <td>
         <select name="kerja-${idx}-cuaca">
@@ -542,10 +598,44 @@ async function submitFormTo(target, newTab) {
     } else {
       setStatus('📤 Mengirim…');
     }
+
+    // Kalau HP mendukung Web Share berkas (Android/Chrome), ambil PDF-nya lalu
+    // tawarkan "Bagikan / Simpan" — jauh lebih enak daripada download di WebView.
+    const bisaShare = (typeof navigator.canShare === 'function' && target === '/generate');
+    if (bisaShare) {
+      try {
+        setStatus('⏳ Membuat PDF…');
+        const resp = await fetch(target, { method: 'POST', body: new FormData(f) });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const blob = await resp.blob();
+        if (blob.type.indexOf('pdf') === -1) throw new Error('respons bukan PDF');
+        let fname = 'Laporan-POB.pdf';
+        const mm = (resp.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/);
+        if (mm) fname = mm[1];
+        if (navigator.canShare({ files: [new File([blob], fname, { type: 'application/pdf' })] })) {
+          try {
+            await navigator.share({ files: [new File([blob], fname, { type: 'application/pdf' })], title: fname });
+            setStatus('✅ PDF siap — pilih Simpan / bagikan ke WhatsApp');
+          } catch (e) {
+            // user batalin share sheet -> jangan unduh paksa
+            if (e && e.name === 'AbortError') setStatus('Dibatalkan.');
+            else setStatus('📤 Mengirim…'), f.submit();
+          }
+          setTimeout(() => setStatus(''), 7000);
+          return;
+        }
+        // canShare bilang tidak bisa -> pakai jalur form biasa di bawah
+        setStatus('📤 Mengirim…');
+      } catch (e) {
+        // apa pun gagalnya, jatuh ke cara klasik (form submit)
+        setStatus('📤 Mengirim…');
+      }
+    }
+
     f.action = target;
     f.target = newTab ? '_blank' : '_self';
     f.submit();
-    setTimeout(() => setStatus(''), 4000);
+    setTimeout(() => setStatus(''), 5000);
   } catch (err) {
     setStatus('❌ Gagal menyiapkan foto: ' + err.message);
   } finally {

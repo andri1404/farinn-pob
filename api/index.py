@@ -24,6 +24,7 @@ for sp in ('/home/ubuntu/.local/lib/python3.12/site-packages',
 
 import io
 import re
+import json
 import base64
 from datetime import datetime, date
 from io import BytesIO
@@ -873,6 +874,32 @@ def generate():
     fname = "Laporan-POB-" + base + ".pdf"
     return send_file(pdf, mimetype='application/pdf', as_attachment=True,
                      download_name=fname)
+
+
+@app.route('/manifest.webmanifest')
+def manifest():
+    """PWA manifest -> web bisa 'Dipasang ke layar utama' di Android (kayak aplikasi)."""
+    data = {
+        "name": "Laporan Harian Riam Kanan",
+        "short_name": "Laporan PPA",
+        "description": "Form laporan harian Petugas Operasi Bendung / Juru Jaringan / PPA — DI Riam Kanan.",
+        "start_url": "/",
+        "scope": "/",
+        "display": "standalone",
+        "orientation": "any",
+        "background_color": "#ffffff",
+        "theme_color": "#1e3a8a",
+        "lang": "id",
+        "icons": [
+            {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+            {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }
+    return app.response_class(
+        json.dumps(data, ensure_ascii=False),
+        mimetype='application/manifest+json',
+    )
 
 
 @app.route('/healthz')
