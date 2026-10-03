@@ -355,14 +355,32 @@ function refreshDays(keep) {
   dEl.value = Math.min(cur, max);
 }
 
+// Ambil bagian tanggal dari dropdown identitas, dengan pengaman.
+// Kalau ada yang kosong/nggak masuk akal (mis. select ke-reset jadi ""),
+// jangan sampai menghasilkan tanggal aneh kayak "03/10/0".
+function bagianTanggal() {
+  const dEl = document.getElementById('tgl_d');
+  const mEl = document.getElementById('tgl_m');
+  const yEl = document.getElementById('tgl_y');
+  const now = new Date();
+  let d = +(dEl && dEl.value) || now.getDate();
+  let m = +(mEl && mEl.value) || (now.getMonth() + 1);
+  let y = +(yEl && yEl.value) || now.getFullYear();
+  if (y < 1900 || y > 2200) y = now.getFullYear();
+  if (m < 1 || m > 12) m = now.getMonth() + 1;
+  const max = daysInMonth(m, y);
+  if (d < 1 || d > max) d = Math.min(now.getDate(), max);
+  return { d, m, y };
+}
+
 function teksTanggal() {
-  const d = +document.getElementById('tgl_d').value;
-  const m = +document.getElementById('tgl_m').value;
-  const y = +document.getElementById('tgl_y').value;
-  return `${pad2(d)}/${pad2(m)}/${y}`;
+  const t = bagianTanggal();
+  return `${pad2(t.d)}/${pad2(t.m)}/${t.y}`;
 }
 
 function opsiTanggalBulan(m, y) {
+  if (!(y >= 1900 && y <= 2200)) y = new Date().getFullYear();
+  if (!(m >= 1 && m <= 12)) m = new Date().getMonth() + 1;
   const max = daysInMonth(m, y);
   let html = '';
   for (let d = 1; d <= max; d++) {
@@ -380,7 +398,8 @@ function isiTanggalPilih(root) {
   const mEl = document.getElementById('tgl_m');
   const yEl = document.getElementById('tgl_y');
   if (!mEl || !yEl) return;
-  const m = +mEl.value, y = +yEl.value;
+  const t = bagianTanggal();
+  const m = t.m, y = t.y;
   const kunci = m + '/' + y;
   const txt = teksTanggal();
   scope.querySelectorAll('select.sel-tanggal').forEach(sel => {
@@ -1229,11 +1248,13 @@ function resetForm() {
   });
   // Balikin kolom Hari/Tanggal ke mode otomatis + isi ulang dari dropdown
   document.querySelectorAll('select.sel-tanggal').forEach(el => { delete el.dataset.auto; });
+  // DEFAULT_DATE formatnya "YYYY-MM-DD" -> parts[0]=tahun, [1]=bulan, [2]=tanggal
   const parts = (DEFAULT_DATE || '').split('-').map(Number);
   const mEl = document.getElementById('tgl_m'), yEl = document.getElementById('tgl_y');
   if (mEl && yEl && parts.length === 3) {
-    mEl.value = parts[1]; yEl.value = parts[2];
-    refreshDays(parts[2] ? parts[2] : 1);
+    yEl.value = parts[0];
+    mEl.value = parts[1];
+    refreshDays(parts[2] || 1);
     document.getElementById('tgl_d').value = parts[2];
   }
   syncTanggal();
@@ -1247,7 +1268,7 @@ function resetForm() {
   });
   // Re-bind for any newly added file inputs
   bindPreviewListeners();
-  // Kosongkan semua dropdown jam + Lokasi/Pekerjaan setelah reset
+  // Kosongkan dropdown Lokasi/Pekerjaan setelah reset
   document.querySelectorAll('.pilih-cust').forEach(w => setPilihCust(w, ''));
   // Reset berarti mulai baru -> draf tersimpan ikut dibuang
   try { localStorage.removeItem(DRAF_KEY); } catch (e) {}
