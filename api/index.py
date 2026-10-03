@@ -758,7 +758,7 @@ def index():
 def preview():
     """Show preview of what the PDF will look like (HTML mockup)."""
     meta = {
-        'nama': request.form.get('nama', 'Muhammad Yasir'),
+        'nama': request.form.get('nama', 'Muhammad Andri'),
         'petugas': request.form.get('petugas', ''),
         'petugas_label': request.form.get('petugas_label', 'Petugas'),
         'pengamat': request.form.get('pengamat', 'AKHMAD MUHAZIR'),
@@ -776,7 +776,7 @@ def preview():
 @app.route('/generate', methods=['POST'])
 def generate():
     meta = {
-        'nama': request.form.get('nama', 'Muhammad Yasir'),
+        'nama': request.form.get('nama', 'Muhammad Andri'),
         'petugas': request.form.get('petugas', ''),
         'petugas_label': request.form.get('petugas_label', 'Petugas'),
         'pengamat': request.form.get('pengamat', 'AKHMAD MUHAZIR'),
