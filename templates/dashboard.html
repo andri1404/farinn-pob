@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Dashboard Laporan PPA</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui,-apple-system,sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+.header { background: linear-gradient(135deg,#1e3a8a,#2563eb); color: white; padding: 16px 20px; position: sticky; top: 0; z-index: 10; }
+.header h1 { font-size: 18px; font-weight: 700; }
+.header .sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+.header .top-row { display: flex; justify-content: space-between; align-items: center; }
+.header .top-row a { color: #93c5fd; font-size: 13px; text-decoration: none; }
+.header .top-row a:hover { text-decoration: underline; }
+.container { max-width: 1100px; margin: 0 auto; padding: 12px; }
+
+/* stats cards */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat-card { background: white; border-radius: 10px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); text-align: center; }
+.stat-card .num { font-size: 26px; font-weight: 800; color: #1e3a8a; }
+.stat-card .label { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* filter */
+.filter-bar { background: white; border-radius: 10px; padding: 12px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.filter-bar select, .filter-bar input { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; background: white; flex: 1; min-width: 100px; }
+.filter-bar .btn { padding: 8px 16px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-outline { background: transparent; border: 1px solid #cbd5e1; color: #64748b; }
+
+/* table */
+.table-wrap { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+th { background: #f8fafc; padding: 10px 8px; text-align: left; font-weight: 600; color: #475569; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+tr:hover td { background: #f8fafc; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+.badge-bgt { background: #dbeafe; color: #1e40af; }
+.badge-ok { background: #dcfce7; color: #166534; }
+
+/* mobile card mode */
+@media (max-width: 640px) {
+  table, thead, tbody, th, td, tr { display: block; }
+  thead { display: none; }
+  tr { padding: 12px; border-bottom: 1px solid #e2e8f0; }
+  td { padding: 4px 0; border: none; display: flex; justify-content: space-between; gap: 8px; }
+  td::before { content: attr(data-label); font-weight: 600; color: #64748b; font-size: 11px; flex-shrink: 0; }
+}
+
+.empty { text-align: center; padding: 40px 20px; color: #94a3b8; }
+.empty p { font-size: 14px; margin-top: 6px; }
+
+/* auto-refresh indicator */
+.refresh-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 11px; color: #94a3b8; }
+.refresh-bar .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.dot-live { background: #22c55e; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* kv notif */
+.notif { background: #fef3c7; border: 1px solid #f59e0b; color: #92400e; border-radius: 10px; padding: 14px; margin-bottom: 14px; font-size: 13px; }
+.notif a { color: #2563eb; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="top-row">
+    <div>
+      <h1>📊 Dashboard Laporan PPA</h1>
+      <div class="sub">Monitoring TMA & Laporan Harian — DI Riam Kanan</div>
+      <div class="sub" style="font-size:11px;opacity:0.6;margin-top:0">Backend: {{ backend }}</div>
+    </div>
+    <a href="/">← Form Laporan</a>
+  </div>
+</div>
+
+<div class="container">
+
+{% if not kv_ok %}
+<div class="notif">
+  ⚠️ <b>Database belum terhubung.</b> Data laporan tidak tersimpan.
+  <a href="/dashboard?setup=1">Lihat cara setup</a>
+</div>
+{% endif %}
+
+<!-- Stats -->
+<div class="stats" id="stats-cards">
+  <div class="stat-card">
+    <div class="num" id="stat-total">0</div>
+    <div class="label">Total Laporan</div>
+  </div>
+  <div class="stat-card">
+    <div class="num" id="stat-area">0</div>
+    <div class="label">Area Aktif</div>
+  </div>
+  <div class="stat-card">
+    <div class="num" id="stat-bulan">0</div>
+    <div class="label">Bulan Ini</div>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <select id="filter-tahun">
+    <option value="">Semua Tahun</option>
+    <option value="2026">2026</option>
+    <option value="2025">2025</option>
+  </select>
+  <select id="filter-bulan">
+    <option value="">Semua Bulan</option>
+    {% for b in range(1,13) %}
+    <option value="{{ '%02d' % b }}">{{ ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][b-1] }}</option>
+    {% endfor %}
+  </select>
+  <select id="filter-lokasi">
+    <option value="">Semua Area</option>
+    <option value="BGT. 8">BGT. 8</option>
+    <option value="BGT. 9">BGT. 9</option>
+    <option value="BGT. 10">BGT. 10</option>
+    <option value="BGT. 11">BGT. 11</option>
+    <option value="BGT. 12">BGT. 12</option>
+  </select>
+  <button class="btn btn-primary" onclick="applyFilter()">Terapkan</button>
+  <button class="btn btn-outline" onclick="resetFilter()">Reset</button>
+</div>
+
+<!-- Table -->
+<div class="table-wrap" id="table-wrap">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Tanggal</th>
+          <th>Petugas</th>
+          <th>Area</th>
+          <th>TMA</th>
+          <th>Cuaca</th>
+          <th>Status</th>
+          <th>Pengamat</th>
+        </tr>
+      </thead>
+      <tbody id="reports-tbody">
+      </tbody>
+    </table>
+  </div>
+  <div class="refresh-bar">
+    <span><span class="dot dot-live"></span>Auto-refresh tiap 30 detik</span>
+    <span id="refresh-info">Memuat...</span>
+  </div>
+</div>
+
+</div>
+
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+
+function getFilters() {
+  return {
+    tahun: document.getElementById('filter-tahun').value,
+    bulan: document.getElementById('filter-bulan').value,
+    lokasi: document.getElementById('filter-lokasi').value,
+  };
+}
+
+function applyFilter() { loadData(); }
+function resetFilter() {
+  document.getElementById('filter-tahun').value = '';
+  document.getElementById('filter-bulan').value = '';
+  document.getElementById('filter-lokasi').value = '';
+  loadData();
+}
+
+async function loadData() {
+  const f = getFilters();
+  const params = new URLSearchParams();
+  if (f.tahun) params.set('tahun', f.tahun);
+  if (f.bulan) params.set('bulan', f.bulan);
+  if (f.lokasi) params.set('lokasi', f.lokasi);
+  try {
+    const resp = await fetch('/api/reports?' + params.toString());
+    const data = await resp.json();
+    renderTable(data.reports || []);
+    renderStats(data.reports || []);
+    document.getElementById('refresh-info').textContent =
+      data.total + ' laporan · ' + (data.kv_ok ? '🟢' : '🔴') + ' ' + new Date().toLocaleTimeString('id-ID');
+  } catch (e) {
+    document.getElementById('reports-tbody').innerHTML =
+      '<tr><td colspan="8" class="empty"><p>❌ Gagal memuat data</p></td></tr>';
+  }
+}
+
+function renderTable(reports) {
+  const tbody = document.getElementById('reports-tbody');
+  if (!reports.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty"><p>Belum ada laporan tersimpan</p></td></tr>';
+    return;
+  }
+  tbody.innerHTML = reports.map((r, i) => {
+    const tgl = r.tanggal || '-';
+    const tma = r.tma || '-';
+    const cuaca = r.cuaca || '-';
+    const status = r.status || '-';
+    const nama = r.nama || '-';
+    const lokasi = r.lokasi || '-';
+    const pengamat = r.pengamat || '-';
+    return '<tr>' +
+      '<td data-label="No">' + (i + 1) + '</td>' +
+      '<td data-label="Tanggal">' + tgl + '</td>' +
+      '<td data-label="Petugas">' + escapeHtml(nama) + '</td>' +
+      '<td data-label="Area"><span class="badge badge-bgt">' + escapeHtml(lokasi) + '</span></td>' +
+      '<td data-label="TMA"><b>' + escapeHtml(tma) + '</b> cm</td>' +
+      '<td data-label="Cuaca">' + escapeHtml(cuaca) + '</td>' +
+      '<td data-label="Status"><span class="badge badge-ok">' + escapeHtml(status) + '</span></td>' +
+      '<td data-label="Pengamat">' + escapeHtml(pengamat) + '</td>' +
+      '</tr>';
+  }).join('');
+}
+
+function renderStats(reports) {
+  document.getElementById('stat-total').textContent = reports.length;
+  const areas = new Set(reports.map(r => r.lokasi).filter(Boolean));
+  document.getElementById('stat-area').textContent = areas.size;
+  const now = new Date();
+  const bulanIni = reports.filter(r => {
+    const t = r.tanggal || '';
+    return t.startsWith(now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0'));
+  });
+  document.getElementById('stat-bulan').textContent = bulanIni.length;
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Auto-refresh
+loadData();
+setInterval(loadData, 30000);
+</script>
+
+</body>
+</html>

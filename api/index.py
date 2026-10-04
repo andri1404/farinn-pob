@@ -22,6 +22,8 @@ for sp in ('/home/ubuntu/.local/lib/python3.12/site-packages',
     if os.path.isdir(sp) and sp not in sys.path:
         sys.path.append(sp)
 
+from api import db
+
 import io
 import re
 import json
@@ -936,9 +938,108 @@ def generate():
         return redirect('/')
     base = _form_date()
     pdf = _render_pdf(base)
+
+    # --- Simpan data laporan ke database (Vercel KV) ---
+    try:
+        pagi_rows = parse_form_pagi()
+        # Ambil data dari Tabel 1 baris pertama (pemeriksaan pagi)
+        lokasi = ''
+        jenis = ''
+        tma = ''
+        cuaca = ''
+        status = ''
+        if pagi_rows:
+            r = pagi_rows[0]
+            lokasi = r.get('lokasi', '')
+            jenis = r.get('jenis', '')
+            tma = r.get('tma', '')
+            cuaca = r.get('cuaca', '')
+            status = r.get('status', '')
+        # Kalau Tabel 1 kosong, ambil dari Tabel 2
+        if not lokasi:
+            kerja_rows = parse_form_kerja()
+            if kerja_rows:
+                lokasi = kerja_rows[0].get('lokasi', '')
+                jenis = kerja_rows[0].get('jenis', '')
+
+        report = {
+            'id': base.replace('-', '') + '_' + str(int(__import__('time').time() * 1000)),
+            'tanggal': base,
+            'nama': request.form.get('nama', '').strip(),
+            'petugas': request.form.get('petugas', '').strip(),
+            'petugas_label': request.form.get('petugas_label', '').strip(),
+            'pengamat': request.form.get('pengamat', '').strip(),
+            'lokasi': lokasi,
+            'jenis_pekerjaan': jenis,
+            'tma': tma,
+            'cuaca': cuaca,
+            'status': status,
+        }
+        db.save_report(report)
+    except Exception as e:
+        # Jangan gagalkan generate PDF cuma karena penyimpanan gagal
+        print(f'[DB SAVE ERROR] {e}')
+
     # Nama berkas ikut nama petugas + tanggal laporan, mis.
     # "Laporan Harian Muhammad Andri S.Pd 03-10-2026.pdf"
     return _kirim_pdf(pdf, _nama_file_pdf(base), lampiran=True)
+
+
+@app.route('/dashboard')
+def dashboard():
+    """Halaman dashboard - liat semua laporan + filter."""
+    reports = db.get_reports(500) if db.available() else []
+    return render_template('dashboard.html', reports=reports, kv_ok=db.available(), backend=db.backend_name())
+
+
+@app.route('/api/reports', methods=['GET'])
+def api_reports():
+    """JSON endpoint — daftar laporan terbaru.
+    Query params: ?tahun=2026&bulan=10&lokasi=BGT.8
+    """
+    tahun = request.args.get('tahun', '')
+    bulan = request.args.get('bulan', '')
+    lokasi = request.args.get('lokasi', '')
+    if tahun or bulan or lokasi:
+        reports = db.get_reports_filtered(tahun, bulan, lokasi) if db.available() else []
+    else:
+        reports = db.get_reports(500) if db.available() else []
+    return jsonify({
+        'status': 'ok',
+        'total': len(reports),
+        'kv_ok': db.available(),
+        'backend': db.backend_name(),
+        'reports': reports,
+    })
+
+
+@app.route('/api/reports/stats', methods=['GET'])
+def api_reports_stats():
+    """Statistik dashboard: total laporan, per area, tren TMA."""
+    reports = db.get_reports(500) if db.available() else []
+    # Per-area
+    area_counts = {}
+    for r in reports:
+        lok = r.get('lokasi', 'Unknown') or 'Unknown'
+        area_counts[lok] = area_counts.get(lok, 0) + 1
+    area_stats = [{'lokasi': k, 'total': v} for k, v in sorted(area_counts.items())]
+    # TMA trend (10 terakhir)
+    tma_trend = []
+    for r in reports[:30]:
+        t = r.get('tma', '')
+        if t:
+            tma_trend.append({
+                'tanggal': r.get('tanggal', ''),
+                'lokasi': r.get('lokasi', ''),
+                'tma': t,
+                'nama': r.get('nama', ''),
+            })
+    return jsonify({
+        'status': 'ok',
+        'total': len(reports),
+        'per_area': area_stats,
+        'tma_trend': tma_trend,
+    })
 
 
 @app.route('/manifest.webmanifest')
