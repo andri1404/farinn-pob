@@ -28,7 +28,7 @@ import io
 import re
 import json
 import base64
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 from urllib.parse import quote
 from io import BytesIO
 
@@ -809,7 +809,7 @@ def handle_413(e):
 
 @app.route('/')
 def index():
-    today = datetime.now().strftime('%Y-%m-%d')
+    today = (datetime.now(timezone.utc) + timedelta(hours=8)).strftime('%Y-%m-%d')
     return render_template('form.html', default_date=today, bulan_id=BULAN_ID)
 
 
